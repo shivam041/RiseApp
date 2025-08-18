@@ -1,29 +1,67 @@
 {
   "expo": {
-    "name": "RiseApp",
-    "slug": "RiseApp",
+    "name": "Rise",
+    "slug": "rise-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
+    "description": "A beautiful productivity and wellness app to help you rise above your goals",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#1A0F0F"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.rise.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "background-processing",
+          "remote-notification"
+        ],
+        "NSUserTrackingUsageDescription": "This app uses tracking to provide personalized features and improve your experience.",
+        "NSCameraUsageDescription": "This app does not use camera access.",
+        "NSMicrophoneUsageDescription": "This app does not use microphone access.",
+        "NSUserNotificationsUsageDescription": "This app uses notifications to remind you of your daily habits and goals."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#1A0F0F"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.rise.app",
+      "permissions": [
+        "NOTIFICATIONS",
+        "VIBRATE",
+        "WAKE_LOCK"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "color": "#FF6B35"
+        }
+      ]
+    ],
+    "notification": {
+      "color": "#FF6B35",
+      "iosDisplayInForeground": true,
+      "androidMode": "default",
+      "androidCollapsedTitle": "Rise"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "a9dfac0b-877d-4a00-b316-e7158db371f2"
+      }
     }
   }
 }
