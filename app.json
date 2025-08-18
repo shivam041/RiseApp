@@ -20,6 +20,8 @@
       "infoPlist": {
         "UIBackgroundModes": [
           "background-processing",
+          "remote-notification",
+          "background-processing",
           "remote-notification"
         ],
         "NSUserTrackingUsageDescription": "This app uses tracking to provide personalized features and improve your experience.",
@@ -36,6 +38,9 @@
       "edgeToEdgeEnabled": true,
       "package": "com.rise.app",
       "permissions": [
+        "NOTIFICATIONS",
+        "VIBRATE",
+        "WAKE_LOCK",
         "NOTIFICATIONS",
         "VIBRATE",
         "WAKE_LOCK"
@@ -62,6 +67,10 @@
       "eas": {
         "projectId": "a9dfac0b-877d-4a00-b316-e7158db371f2"
       }
+    },
+    "runtimeVersion": "1.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/a9dfac0b-877d-4a00-b316-e7158db371f2"
     }
   }
 }
