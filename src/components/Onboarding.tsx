@@ -17,6 +17,7 @@ const { width, height } = Dimensions.get('window');
 
 interface OnboardingProps {
   onComplete: (userData: OnboardingData) => void;
+  onGoHome?: () => void;
 }
 
 interface OnboardingData {
@@ -39,7 +40,7 @@ interface OnboardingData {
   showerGoal: number;
 }
 
-const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
+const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onGoHome }) => {
   const { theme } = useTheme();
   const [currentStep, setCurrentStep] = useState(0);
   const [userData, setUserData] = useState<Partial<OnboardingData>>({});
@@ -707,9 +708,17 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
         {renderProgressBar()}
-        <View style={styles.languageSelector}>
-          <Text style={[styles.languageText, { color: theme.colors.text }]}>English</Text>
-          <Ionicons name="chevron-down" size={16} color={theme.colors.text} />
+        <View style={styles.headerRight}>
+          {onGoHome && (
+            <TouchableOpacity onPress={onGoHome} style={styles.homeButton}>
+              <Ionicons name="home" size={20} color={theme.colors.primary} />
+              <Text style={[styles.homeButtonText, { color: theme.colors.primary }]}>Home</Text>
+            </TouchableOpacity>
+          )}
+          <View style={styles.languageSelector}>
+            <Text style={[styles.languageText, { color: theme.colors.text }]}>English</Text>
+            <Ionicons name="chevron-down" size={16} color={theme.colors.text} />
+          </View>
         </View>
       </View>
 
@@ -1026,6 +1035,24 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginRight: 8,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  homeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#2D1B1B',
+    marginRight: 12,
+  },
+  homeButtonText: {
+    fontSize: 12,
+    marginLeft: 4,
+    fontWeight: '500',
   },
 });
 

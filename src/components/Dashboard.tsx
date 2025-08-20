@@ -6,12 +6,20 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
 import { loadQuestionnaire } from '../store/slices/questionnaireSlice';
+import { 
+  loadDailyProgress, 
+  saveDailyProgress, 
+  updateCurrentDay,
+  DailyProgress,
+  Task as ProgressTask 
+} from '../store/slices/progressSlice';
 
 const { width, height } = Dimensions.get('window');
 
@@ -28,8 +36,11 @@ interface Task {
   title: string;
   category: string;
   isCompleted: boolean;
-  difficulty: 'easy' | 'medium' | 'hard';
-  estimatedTime: number;
+  difficulty: number;
+  streak: number;
+  repeat: string;
+  description: string;
+  image?: string;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
@@ -47,14 +58,27 @@ const Dashboard: React.FC<DashboardProps> = ({
   const questionnaire = useSelector((state: RootState) => state.questionnaire.questionnaire);
   const isLoading = useSelector((state: RootState) => state.questionnaire.isLoading);
   
+  // Get progress data from Redux store
+  const progress = useSelector((state: RootState) => state.progress);
+  const { dailyProgress, currentDay, totalDays } = progress;
+  
   // Create dynamic tasks based on user's actual goals
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   // Load questionnaire data when component mounts
   useEffect(() => {
     console.log('Dashboard: Loading questionnaire data...');
     dispatch(loadQuestionnaire()).catch(error => {
       console.error('Dashboard: Failed to load questionnaire:', error);
+    });
+  }, [dispatch]);
+
+  // Load progress data when component mounts
+  useEffect(() => {
+    console.log('Dashboard: Loading progress data...');
+    dispatch(loadDailyProgress()).catch(error => {
+      console.error('Dashboard: Failed to load progress:', error);
     });
   }, [dispatch]);
 
@@ -66,51 +90,69 @@ const Dashboard: React.FC<DashboardProps> = ({
       const dynamicTasks: Task[] = [
         {
           id: '1',
-          title: `Wake up at ${questionnaire.sleepGoal}`,
+          title: `Wake up at ${questionnaire.wakeUpTime || '7AM'}`,
           category: 'sleep',
           isCompleted: false,
-          difficulty: 'medium',
-          estimatedTime: 1,
+          difficulty: 4,
+          streak: 10,
+          repeat: 'Everyday',
+          description: 'Rise before everyone, seize the day.',
+          image: 'sunrise'
         },
         {
           id: '2',
-          title: `Drink ${questionnaire.waterGoal} glasses of water`,
+          title: 'Drink 2L water',
           category: 'water',
           isCompleted: false,
-          difficulty: 'easy',
-          estimatedTime: 5,
+          difficulty: 1,
+          streak: 10,
+          repeat: 'Everyday',
+          description: 'Stay hydrated, stay energised.',
+          image: 'water'
         },
         {
           id: '3',
-          title: `Exercise for ${questionnaire.exerciseGoal} minutes`,
-          category: 'exercise',
+          title: 'Take cold shower',
+          category: 'shower',
           isCompleted: false,
-          difficulty: 'hard',
-          estimatedTime: parseInt(questionnaire.exerciseGoal) || 30,
+          difficulty: 3,
+          streak: 8,
+          repeat: '1x/week',
+          description: 'Build mental toughness.',
+          image: 'shower'
         },
         {
           id: '4',
-          title: `Meditate for ${questionnaire.mindGoal} minutes`,
-          category: 'mind',
+          title: 'Exercise 30 minutes',
+          category: 'exercise',
           isCompleted: false,
-          difficulty: 'medium',
-          estimatedTime: parseInt(questionnaire.mindGoal) || 10,
+          difficulty: 4,
+          streak: 5,
+          repeat: 'Everyday',
+          description: 'Build strength and endurance.',
+          image: 'exercise'
         },
         {
           id: '5',
-          title: `Limit screen time to ${questionnaire.screenTimeGoal} hours`,
-          category: 'screenTime',
+          title: 'Meditate 10 minutes',
+          category: 'mind',
           isCompleted: false,
-          difficulty: 'hard',
-          estimatedTime: (parseInt(questionnaire.screenTimeGoal) || 2) * 60, // Convert hours to minutes
+          difficulty: 2,
+          streak: 12,
+          repeat: 'Everyday',
+          description: 'Find inner peace and focus.',
+          image: 'meditation'
         },
         {
           id: '6',
-          title: `Take a cold shower for ${questionnaire.showerGoal} minutes`,
-          category: 'shower',
+          title: 'Read 30 minutes',
+          category: 'mind',
           isCompleted: false,
-          difficulty: 'hard',
-          estimatedTime: parseInt(questionnaire.showerGoal) || 5,
+          difficulty: 2,
+          streak: 7,
+          repeat: 'Everyday',
+          description: 'Expand your knowledge.',
+          image: 'book'
         },
       ];
       console.log('Dashboard: Setting dynamic tasks:', dynamicTasks);
@@ -121,87 +163,293 @@ const Dashboard: React.FC<DashboardProps> = ({
       const fallbackTasks: Task[] = [
         {
           id: '1',
-          title: 'Wake up at your goal time',
+          title: 'Wake up at 7AM',
           category: 'sleep',
           isCompleted: false,
-          difficulty: 'medium',
-          estimatedTime: 1,
+          difficulty: 4,
+          streak: 10,
+          repeat: 'Everyday',
+          description: 'Rise before everyone, seize the day.',
+          image: 'sunrise'
         },
         {
           id: '2',
-          title: 'Drink your daily water goal',
+          title: 'Drink 2L water',
           category: 'water',
           isCompleted: false,
-          difficulty: 'easy',
-          estimatedTime: 5,
+          difficulty: 1,
+          streak: 10,
+          repeat: 'Everyday',
+          description: 'Stay hydrated, stay energised.',
+          image: 'water'
         },
         {
           id: '3',
-          title: 'Complete your exercise goal',
-          category: 'exercise',
+          title: 'Take cold shower',
+          category: 'shower',
           isCompleted: false,
-          difficulty: 'hard',
-          estimatedTime: 30,
+          difficulty: 3,
+          streak: 8,
+          repeat: '1x/week',
+          description: 'Build mental toughness.',
+          image: 'shower'
         },
         {
           id: '4',
-          title: 'Complete your meditation goal',
-          category: 'mind',
+          title: 'Exercise 30 minutes',
+          category: 'exercise',
           isCompleted: false,
-          difficulty: 'medium',
-          estimatedTime: 10,
+          difficulty: 4,
+          streak: 5,
+          repeat: 'Everyday',
+          description: 'Build strength and endurance.',
+          image: 'exercise'
         },
         {
           id: '5',
-          title: 'Stay within your screen time limit',
-          category: 'screenTime',
+          title: 'Meditate 10 minutes',
+          category: 'mind',
           isCompleted: false,
-          difficulty: 'hard',
-          estimatedTime: 120,
+          difficulty: 2,
+          streak: 12,
+          repeat: 'Everyday',
+          description: 'Find inner peace and focus.',
+          image: 'meditation'
         },
         {
           id: '6',
-          title: 'Take your cold shower',
-          category: 'shower',
+          title: 'Read 30 minutes',
+          category: 'mind',
           isCompleted: false,
-          difficulty: 'hard',
-          estimatedTime: 5,
+          difficulty: 2,
+          streak: 7,
+          repeat: 'Everyday',
+          description: 'Expand your knowledge.',
+          image: 'book'
         },
       ];
       setTasks(fallbackTasks);
     }
   }, [questionnaire, isLoading]);
 
+  // Sync tasks with progress data
+  useEffect(() => {
+    if (dailyProgress.length > 0) {
+      const today = new Date().toISOString().split('T')[0];
+      const todayProgress = dailyProgress.find(p => p.date === today);
+      
+      if (todayProgress) {
+        setTasks(prevTasks => 
+          prevTasks.map(task => {
+            const progressTask = todayProgress.tasks.find(pt => pt.id === task.id);
+            return progressTask ? { ...task, isCompleted: progressTask.isCompleted } : task;
+          })
+        );
+      }
+    }
+  }, [dailyProgress]);
+
+  // Check if all tasks are completed and advance to next day
+  useEffect(() => {
+    const allTasksCompleted = tasks.length > 0 && tasks.every(task => task.isCompleted);
+    
+    if (allTasksCompleted && currentDay < totalDays) {
+      // Show celebration
+      setShowCelebration(true);
+      
+      // Auto-advance to next day after a short delay
+      const timer = setTimeout(async () => {
+        try {
+          const nextDay = currentDay + 1;
+          await dispatch(updateCurrentDay(nextDay)).unwrap();
+          console.log(`Advanced to day ${nextDay}`);
+          
+          // Reset tasks for the new day
+          setTasks(prevTasks => 
+            prevTasks.map(task => ({ ...task, isCompleted: false }))
+          );
+          
+          // Hide celebration
+          setShowCelebration(false);
+        } catch (error) {
+          console.error('Failed to advance to next day:', error);
+        }
+      }, 3000); // 3 second delay
+      
+      return () => clearTimeout(timer);
+    }
+  }, [tasks, currentDay, totalDays, dispatch]);
+
   const tabs = [
-    { name: 'Today', icon: 'calendar' },
-    { name: 'Progress', icon: 'trending-up' },
-    { name: 'Goals', icon: 'flag' },
+    { name: 'To-dos', count: tasks.filter(t => !t.isCompleted).length, icon: 'list' },
+    { name: 'Done', count: tasks.filter(t => t.isCompleted).length, icon: 'checkmark-circle' },
+    { name: 'Skipped', count: 0, icon: 'close-circle' },
   ];
 
-  const handleTaskToggle = (taskId: string) => {
-    setTasks(prev =>
-      prev.map(task =>
-        task.id === taskId
-          ? { ...task, isCompleted: !task.isCompleted }
-          : task
-      )
+  const handleTaskToggle = async (taskId: string) => {
+    const updatedTasks = tasks.map(task =>
+      task.id === taskId
+        ? { ...task, isCompleted: !task.isCompleted }
+        : task
     );
+    
+    setTasks(updatedTasks);
+
+    // Calculate new streak for the task
+    const task = updatedTasks.find(t => t.id === taskId);
+    if (task) {
+      const newStreak = task.isCompleted ? task.streak + 1 : Math.max(0, task.streak - 1);
+      task.streak = newStreak;
+    }
+
+    // Save progress to persistent storage
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const todayProgress: DailyProgress = {
+        id: today,
+        date: today,
+        tasks: updatedTasks.map(task => ({
+          id: task.id,
+          title: task.title,
+          category: task.category,
+          isCompleted: task.isCompleted,
+          difficulty: task.difficulty,
+          streak: task.streak,
+          repeat: task.repeat,
+          description: task.description,
+        })),
+        completedTasks: updatedTasks.filter(t => t.isCompleted).length,
+        totalTasks: updatedTasks.length,
+        waterIntake: 0,
+        exerciseMinutes: 0,
+        screenTimeHours: 0,
+        stressLevel: 5,
+        energyLevel: 5,
+        motivationLevel: 5,
+      };
+
+      await dispatch(saveDailyProgress(todayProgress)).unwrap();
+      console.log('Progress saved successfully');
+    } catch (error) {
+      console.error('Failed to save progress:', error);
+    }
   };
+
+  // Calculate overall progress and achievements
+  const getOverallProgress = () => {
+    const totalCompleted = dailyProgress.reduce((sum, day) => sum + day.completedTasks, 0);
+    const totalPossible = dailyProgress.reduce((sum, day) => sum + day.totalTasks, 0);
+    const averageCompletion = totalPossible > 0 ? (totalCompleted / totalPossible) * 100 : 0;
+    
+    // Calculate current streak
+    let currentStreak = 0;
+    for (let i = dailyProgress.length - 1; i >= 0; i--) {
+      if (dailyProgress[i].completedTasks > 0) {
+        currentStreak++;
+      } else {
+        break;
+      }
+    }
+    
+    return {
+      totalCompleted,
+      totalPossible,
+      averageCompletion,
+      currentStreak,
+    };
+  };
+
+  const overallProgress = getOverallProgress();
+
+  // Get water intake progress
+  const getWaterProgress = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const todayProgress = dailyProgress.find(p => p.date === today);
+    return todayProgress?.waterIntake || 0;
+  };
+
+  const waterProgress = getWaterProgress();
+
+  // Calculate achievements
+  const getAchievements = () => {
+    const achievements = [];
+    
+    if (overallProgress.currentStreak >= 7) {
+      achievements.push({ type: 'streak', title: 'Week Warrior', icon: '🔥' });
+    }
+    
+    if (overallProgress.currentStreak >= 30) {
+      achievements.push({ type: 'streak', title: 'Month Master', icon: '👑' });
+    }
+    
+    if (overallProgress.totalCompleted >= 100) {
+      achievements.push({ type: 'tasks', title: 'Century Club', icon: '💯' });
+    }
+    
+    if (overallProgress.averageCompletion >= 90) {
+      achievements.push({ type: 'consistency', title: 'Consistency King', icon: '⭐' });
+    }
+    
+    return achievements;
+  };
+
+  const achievements = getAchievements();
+
+  // Calculate user level based on progress
+  const getUserLevel = () => {
+    const totalExperience = overallProgress.totalCompleted * 10 + overallProgress.currentStreak * 5;
+    const level = Math.floor(totalExperience / 100) + 1;
+    const experienceInCurrentLevel = totalExperience % 100;
+    const experienceToNextLevel = 100 - experienceInCurrentLevel;
+    
+    return {
+      level,
+      experienceInCurrentLevel,
+      experienceToNextLevel,
+      totalExperience,
+    };
+  };
+
+  const userLevel = getUserLevel();
+
+  // Motivational quotes and tips
+  const getMotivationalContent = () => {
+    const quotes = [
+      "Every day is a new beginning. Take a deep breath and start again.",
+      "The only bad workout is the one that didn't happen.",
+      "Small progress is still progress.",
+      "You are stronger than you think.",
+      "Discipline is choosing between what you want now and what you want most.",
+    ];
+    
+    const tips = [
+      "Start your day with the hardest task first.",
+      "Take breaks between tasks to maintain focus.",
+      "Celebrate small wins to stay motivated.",
+      "Track your progress to see how far you've come.",
+      "Remember why you started when motivation is low.",
+    ];
+    
+    const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+    const randomTip = tips[Math.floor(Math.random() * tips.length)];
+    
+    return { quote: randomQuote, tip: randomTip };
+  };
+
+  const motivationalContent = getMotivationalContent();
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
       case 'sleep':
-        return 'bed';
+        return 'sunny';
       case 'water':
         return 'water';
       case 'exercise':
         return 'fitness';
       case 'mind':
         return 'brain';
-      case 'screenTime':
-        return 'phone-portrait';
       case 'shower':
-        return 'water';
+        return 'water-outline';
       default:
         return 'checkmark-circle';
     }
@@ -210,15 +458,13 @@ const Dashboard: React.FC<DashboardProps> = ({
   const getCategoryColor = (category: string) => {
     switch (category) {
       case 'sleep':
-        return '#8B5CF6';
+        return '#F59E0B';
       case 'water':
         return '#06B6D4';
       case 'exercise':
         return '#10B981';
       case 'mind':
-        return '#F59E0B';
-      case 'screenTime':
-        return '#EF4444';
+        return '#8B5CF6';
       case 'shower':
         return '#3B82F6';
       default:
@@ -226,17 +472,8 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'easy':
-        return '#10B981';
-      case 'medium':
-        return '#F59E0B';
-      case 'hard':
-        return '#EF4444';
-      default:
-        return theme.colors.primary;
-    }
+  const getDifficultyStars = (difficulty: number) => {
+    return '★'.repeat(difficulty) + '☆'.repeat(5 - difficulty);
   };
 
   const completedTasks = tasks.filter(task => task.isCompleted).length;
@@ -273,17 +510,20 @@ const Dashboard: React.FC<DashboardProps> = ({
             <Text style={[styles.taskTitle, { color: theme.colors.text }]}>
               {task.title}
             </Text>
+            <Text style={[styles.taskDescription, { color: theme.colors.textSecondary }]}>
+              {task.description}
+            </Text>
             <View style={styles.taskMeta}>
-              <View
-                style={[
-                  styles.difficultyBadge,
-                  { backgroundColor: getDifficultyColor(task.difficulty) },
-                ]}
-              >
-                <Text style={styles.difficultyText}>{task.difficulty}</Text>
+              <View style={styles.streakContainer}>
+                <Text style={[styles.streakText, { color: theme.colors.primary }]}>
+                  {task.streak}d
+                </Text>
               </View>
-              <Text style={[styles.timeText, { color: theme.colors.textSecondary }]}>
-                {task.estimatedTime} min
+              <Text style={[styles.repeatText, { color: theme.colors.textSecondary }]}>
+                {task.repeat} Difficulty
+              </Text>
+              <Text style={[styles.difficultyText, { color: theme.colors.primary }]}>
+                {getDifficultyStars(task.difficulty)}
               </Text>
             </View>
           </View>
@@ -303,6 +543,9 @@ const Dashboard: React.FC<DashboardProps> = ({
           )}
         </TouchableOpacity>
       </View>
+      <Text style={[styles.swipeHint, { color: theme.colors.textSecondary }]}>
+        Swipe to complete or skip
+      </Text>
     </TouchableOpacity>
   );
 
@@ -318,26 +561,60 @@ const Dashboard: React.FC<DashboardProps> = ({
     >
       <View style={styles.progressHeader}>
         <Text style={[styles.progressTitle, { color: theme.colors.text }]}>
-          Today's Progress
+          Progress since day 1
         </Text>
         <Text style={[styles.progressSubtitle, { color: theme.colors.textSecondary }]}>
-          {completedTasks} of {totalTasks} completed
+          {waterProgress}L water drank today
         </Text>
       </View>
-      <View style={styles.progressBar}>
-        <View
-          style={[
-            styles.progressFill,
-            {
-              width: `${progressPercentage}%`,
-              backgroundColor: theme.colors.primary,
-            },
-          ]}
-        />
+      
+      <View style={styles.progressStats}>
+        <View style={styles.progressStat}>
+          <Text style={[styles.progressStatNumber, { color: theme.colors.primary }]}>
+            {overallProgress.totalCompleted}
+          </Text>
+          <Text style={[styles.progressStatLabel, { color: theme.colors.textSecondary }]}>
+            Tasks completed
+          </Text>
+        </View>
+        
+        <View style={styles.progressStat}>
+          <Text style={[styles.progressStatNumber, { color: theme.colors.primary }]}>
+            {Math.round(overallProgress.averageCompletion)}%
+          </Text>
+          <Text style={[styles.progressStatLabel, { color: theme.colors.textSecondary }]}>
+            Success rate
+          </Text>
+        </View>
+        
+        <View style={styles.progressStat}>
+          <Text style={[styles.progressStatNumber, { color: theme.colors.primary }]}>
+            {overallProgress.currentStreak}
+          </Text>
+          <Text style={[styles.progressStatLabel, { color: theme.colors.textSecondary }]}>
+            Day streak
+          </Text>
+        </View>
       </View>
-      <Text style={[styles.progressPercentage, { color: theme.colors.primary }]}>
-        {Math.round(progressPercentage)}%
-      </Text>
+
+      {/* Achievements */}
+      {achievements.length > 0 && (
+        <View style={styles.achievementsContainer}>
+          <Text style={[styles.achievementsTitle, { color: theme.colors.text }]}>
+            Recent Achievements
+          </Text>
+          <View style={styles.achievementsList}>
+            {achievements.map((achievement, index) => (
+              <View key={index} style={styles.achievementBadge}>
+                <Text style={styles.achievementIcon}>{achievement.icon}</Text>
+                <Text style={[styles.achievementTitle, { color: theme.colors.text }]}>
+                  {achievement.title}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
     </View>
   );
 
@@ -350,9 +627,44 @@ const Dashboard: React.FC<DashboardProps> = ({
           </View>
         </View>
       </View>
+      
+      {/* Level Display */}
+      <View style={styles.levelContainer}>
+        <Text style={[styles.levelText, { color: theme.colors.primary }]}>
+          Level {userLevel.level}
+        </Text>
+        <View style={styles.experienceBar}>
+          <View 
+            style={[
+              styles.experienceFill, 
+              { 
+                width: `${(userLevel.experienceInCurrentLevel / 100) * 100}%`,
+                backgroundColor: theme.colors.primary 
+              }
+            ]} 
+          />
+        </View>
+        <Text style={[styles.experienceText, { color: theme.colors.textSecondary }]}>
+          {userLevel.experienceInCurrentLevel}/100 XP
+        </Text>
+      </View>
+      
       <Text style={[styles.characterText, { color: theme.colors.textSecondary }]}>
-        Day 1 of your transformation
+        Day {currentDay} of your transformation
       </Text>
+      
+      {/* Celebration Message */}
+      {showCelebration && (
+        <View style={styles.celebrationContainer}>
+          <Text style={styles.celebrationText}>🎉</Text>
+          <Text style={[styles.celebrationMessage, { color: theme.colors.primary }]}>
+            Amazing! All tasks completed!
+          </Text>
+          <Text style={[styles.celebrationSubtext, { color: theme.colors.textSecondary }]}>
+            Advancing to Day {currentDay + 1} in 3 seconds...
+          </Text>
+        </View>
+      )}
     </View>
   );
 
@@ -361,11 +673,19 @@ const Dashboard: React.FC<DashboardProps> = ({
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={[styles.greeting, { color: theme.colors.text }]}>
-            Welcome back, Warrior
+          <View style={styles.logoContainer}>
+            <View style={styles.logoIcon}>
+              <Ionicons name="sunny" size={24} color="#F59E0B" />
+            </View>
+            <Text style={[styles.logoText, { color: theme.colors.text }]}>
+              Rise
+            </Text>
+          </View>
+          <Text style={[styles.dayCounter, { color: theme.colors.text }]}>
+            Day {currentDay}/{totalDays}
           </Text>
           <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-            Ready to conquer today's challenges?
+            Everyday is a new day.
           </Text>
         </View>
         <TouchableOpacity
@@ -380,42 +700,24 @@ const Dashboard: React.FC<DashboardProps> = ({
         {/* Character Section */}
         {renderCharacter()}
 
-        {/* Quick Access Section */}
-        <View style={styles.quickAccessSection}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-            Quick Access
-          </Text>
-          <View style={styles.quickAccessButtons}>
-            <TouchableOpacity
-              style={[styles.quickAccessButton, { backgroundColor: theme.colors.surface }]}
-              onPress={onNavigateToCalendar}
-            >
-              <Ionicons name="calendar" size={32} color={theme.colors.primary} />
-              <Text style={[styles.quickAccessButtonText, { color: theme.colors.text }]}>
-                Calendar
-              </Text>
-              <Text style={[styles.quickAccessButtonSubtext, { color: theme.colors.textSecondary }]}>
-                Track Progress
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[styles.quickAccessButton, { backgroundColor: theme.colors.surface }]}
-              onPress={onNavigateToNotes}
-            >
-              <Ionicons name="document-text" size={32} color={theme.colors.primary} />
-              <Text style={[styles.quickAccessButtonText, { color: theme.colors.text }]}>
-                Notes
-              </Text>
-              <Text style={[styles.quickAccessButtonSubtext, { color: theme.colors.textSecondary }]}>
-                Daily Tasks
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
         {/* Progress Card */}
         {renderProgressCard()}
+
+        {/* Motivational Content */}
+        <View style={[
+          styles.motivationalContainer,
+          { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }
+        ]}>
+          <Text style={[styles.motivationalQuote, { color: theme.colors.text }]}>
+            "{motivationalContent.quote}"
+          </Text>
+          <View style={styles.tipContainer}>
+            <Ionicons name="bulb" size={16} color={theme.colors.primary} />
+            <Text style={[styles.tipText, { color: theme.colors.textSecondary }]}>
+              {motivationalContent.tip}
+            </Text>
+          </View>
+        </View>
 
         {/* Tab Navigation */}
         <View style={styles.tabContainer}>
@@ -430,11 +732,6 @@ const Dashboard: React.FC<DashboardProps> = ({
               ]}
               onPress={() => setSelectedTab(index)}
             >
-              <Ionicons
-                name={tab.icon as any}
-                size={20}
-                color={selectedTab === index ? 'white' : theme.colors.textSecondary}
-              />
               <Text
                 style={[
                   styles.tabText,
@@ -443,7 +740,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   },
                 ]}
               >
-                {tab.name}
+                {tab.name} {tab.count}
               </Text>
             </TouchableOpacity>
           ))}
@@ -451,17 +748,6 @@ const Dashboard: React.FC<DashboardProps> = ({
 
         {/* Tasks Section */}
         <View style={styles.tasksSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-              Today's Tasks
-            </Text>
-            <TouchableOpacity onPress={onNavigateToStats}>
-              <Text style={[styles.viewAllText, { color: theme.colors.primary }]}>
-                View All
-              </Text>
-            </TouchableOpacity>
-          </View>
-          
           {isLoading ? (
             <View style={styles.loadingContainer}>
               <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
@@ -484,29 +770,23 @@ const Dashboard: React.FC<DashboardProps> = ({
           },
         ]}
       >
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="home" size={24} color={theme.colors.primary} />
-          <Text style={[styles.navText, { color: theme.colors.primary }]}>Home</Text>
-        </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={onNavigateToStats}>
           <Ionicons name="stats-chart" size={24} color={theme.colors.textSecondary} />
           <Text style={[styles.navText, { color: theme.colors.textSecondary }]}>Stats</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem}>
+          <View style={styles.riseLogo}>
+            <Ionicons name="sunny" size={24} color="#F59E0B" />
+          </View>
+          <Text style={[styles.navText, { color: theme.colors.primary }]}>Rise</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={onNavigateToCalendar}>
-          <Ionicons name="calendar" size={24} color={theme.colors.textSecondary} />
-          <Text style={[styles.navText, { color: theme.colors.textSecondary }]}>Calendar</Text>
+          <Ionicons name="trophy" size={24} color={theme.colors.textSecondary} />
+          <Text style={[styles.navText, { color: theme.colors.textSecondary }]}>Trophy</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={onNavigateToNotes}>
-          <Ionicons name="document-text" size={24} color={theme.colors.textSecondary} />
-          <Text style={[styles.navText, { color: theme.colors.textSecondary }]}>Notes</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={onNavigateToNotificationSettings}>
-          <Ionicons name="notifications" size={24} color={theme.colors.textSecondary} />
-          <Text style={[styles.navText, { color: theme.colors.textSecondary }]}>Notifications</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={onNavigateToProfile}>
-          <Ionicons name="person" size={24} color={theme.colors.textSecondary} />
-          <Text style={[styles.navText, { color: theme.colors.textSecondary }]}>Profile</Text>
+          <Ionicons name="grid" size={24} color={theme.colors.textSecondary} />
+          <Text style={[styles.navText, { color: theme.colors.textSecondary }]}>More</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -520,7 +800,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingHorizontal: 20,
     paddingTop: 60,
     paddingBottom: 20,
@@ -528,8 +808,26 @@ const styles = StyleSheet.create({
   headerLeft: {
     flex: 1,
   },
-  greeting: {
+  logoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  logoIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#1F2937',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  logoText: {
     fontSize: 24,
+    fontWeight: 'bold',
+  },
+  dayCounter: {
+    fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 4,
   },
@@ -601,21 +899,21 @@ const styles = StyleSheet.create({
   progressSubtitle: {
     fontSize: 14,
   },
-  progressBar: {
-    height: 8,
-    backgroundColor: '#3D2A2A',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 12,
+  progressStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 16,
   },
-  progressFill: {
-    height: '100%',
-    borderRadius: 4,
+  progressStat: {
+    alignItems: 'center',
   },
-  progressPercentage: {
+  progressStatNumber: {
     fontSize: 24,
     fontWeight: 'bold',
-    textAlign: 'center',
+  },
+  progressStatLabel: {
+    fontSize: 12,
+    marginTop: 4,
   },
   tabContainer: {
     flexDirection: 'row',
@@ -626,7 +924,6 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
@@ -636,24 +933,9 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 14,
     fontWeight: '500',
-    marginLeft: 8,
   },
   tasksSection: {
     marginBottom: 24,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  viewAllText: {
-    fontSize: 14,
-    fontWeight: '500',
   },
   taskCard: {
     padding: 16,
@@ -665,6 +947,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 12,
   },
   taskLeft: {
     flexDirection: 'row',
@@ -687,23 +970,32 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginBottom: 4,
   },
+  taskDescription: {
+    fontSize: 14,
+    marginBottom: 8,
+  },
   taskMeta: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
   },
-  difficultyBadge: {
+  streakContainer: {
+    backgroundColor: '#F59E0B',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
     marginRight: 8,
   },
-  difficultyText: {
+  streakText: {
     fontSize: 10,
     fontWeight: '600',
     color: 'white',
-    textTransform: 'uppercase',
   },
-  timeText: {
+  repeatText: {
+    fontSize: 12,
+    marginRight: 8,
+  },
+  difficultyText: {
     fontSize: 12,
   },
   checkbox: {
@@ -713,6 +1005,11 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  swipeHint: {
+    fontSize: 12,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   bottomNav: {
     flexDirection: 'row',
@@ -732,6 +1029,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
   },
+  riseLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#1F2937',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   loadingContainer: {
     paddingVertical: 20,
     alignItems: 'center',
@@ -739,45 +1044,111 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
   },
-  navigationSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 20,
-    marginBottom: 20,
-  },
-  navButton: {
+  celebrationContainer: {
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    marginTop: 20,
+    padding: 15,
+    backgroundColor: '#F59E0B',
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
   },
-  navButtonText: {
+  celebrationText: {
+    fontSize: 30,
+    marginBottom: 8,
+  },
+  celebrationMessage: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  celebrationSubtext: {
+    fontSize: 14,
+  },
+  achievementsContainer: {
+    marginTop: 20,
+    padding: 15,
+    backgroundColor: '#1F2937',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#374151',
+  },
+  achievementsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  achievementsList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  achievementBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2D3748',
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginHorizontal: 4,
+    marginVertical: 4,
+    borderWidth: 1,
+    borderColor: '#4A5568',
+  },
+  achievementIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  achievementTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  levelContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+    width: '100%',
+  },
+  levelText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  experienceBar: {
+    width: '80%',
+    height: 8,
+    backgroundColor: '#4A5568',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  experienceFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  experienceText: {
     fontSize: 12,
     marginTop: 4,
   },
-  quickAccessSection: {
+  motivationalContainer: {
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
     marginBottom: 24,
   },
-  quickAccessButtons: {
+  motivationalQuote: {
+    fontSize: 18,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  tipContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 16,
-  },
-  quickAccessButton: {
     alignItems: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    width: '45%',
+    justifyContent: 'center',
   },
-  quickAccessButtonText: {
+  tipText: {
+    marginLeft: 8,
     fontSize: 14,
-    fontWeight: '600',
-    marginTop: 8,
-  },
-  quickAccessButtonSubtext: {
-    fontSize: 12,
-    marginTop: 4,
   },
 });
 

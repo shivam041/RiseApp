@@ -1,10 +1,35 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { DailyProgress, Task, HabitStats, HabitCategory } from '../../types';
+
+export interface DailyProgress {
+  id: string;
+  date: string;
+  tasks: Task[];
+  completedTasks: number;
+  totalTasks: number;
+  waterIntake: number;
+  exerciseMinutes: number;
+  screenTimeHours: number;
+  stressLevel: number;
+  energyLevel: number;
+  motivationLevel: number;
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  category: string;
+  isCompleted: boolean;
+  difficulty: number;
+  streak: number;
+  repeat: string;
+  description: string;
+}
 
 interface ProgressState {
   dailyProgress: DailyProgress[];
   currentDay: number;
+  totalDays: number;
   isLoading: boolean;
   error: string | null;
 }
@@ -12,196 +37,100 @@ interface ProgressState {
 const initialState: ProgressState = {
   dailyProgress: [],
   currentDay: 1,
+  totalDays: 66,
   isLoading: false,
   error: null,
 };
 
-export const loadDailyProgress = createAsyncThunk('progress/loadDailyProgress', async (_, { getState }) => {
-  try {
-    // Get current user from state to load their specific progress
-    const state = getState() as any;
-    const currentUser = state.user?.user;
-    
-    if (!currentUser?.email) {
-      console.log('No current user found, cannot load daily progress');
-      return [];
-    }
-    
-    const progressData = await AsyncStorage.getItem(`dailyProgress_${currentUser.email}`);
-    console.log('Loading daily progress for user:', currentUser.email);
-    return progressData ? JSON.parse(progressData) : [];
-  } catch (error) {
-    console.error('Failed to load daily progress:', error);
-    throw new Error('Failed to load daily progress');
-  }
-});
-
-export const saveDailyProgress = createAsyncThunk('progress/saveDailyProgress', async (dailyProgress: DailyProgress[], { getState }) => {
-  try {
-    // Get current user from state to save their specific progress
-    const state = getState() as any;
-    const currentUser = state.user?.user;
-    
-    if (!currentUser?.email) {
-      console.log('No current user found, cannot save daily progress');
-      throw new Error('No current user found');
-    }
-    
-    const storageKey = `dailyProgress_${currentUser.email}`;
-    await AsyncStorage.setItem(storageKey, JSON.stringify(dailyProgress));
-    console.log('Saved daily progress for user:', currentUser.email);
-    return dailyProgress;
-  } catch (error) {
-    console.error('Failed to save daily progress:', error);
-    throw new Error('Failed to save daily progress');
-  }
-});
-
-export const completeTask = createAsyncThunk('progress/completeTask', async ({ day, taskId }: { day: number; taskId: string }, { getState }) => {
-  try {
-    // Get current user from state to access their specific progress
-    const state = getState() as any;
-    const currentUser = state.user?.user;
-    
-    if (!currentUser?.email) {
-      throw new Error('No current user found');
-    }
-    
-    const progressData = await AsyncStorage.getItem(`dailyProgress_${currentUser.email}`);
-    if (!progressData) throw new Error('No progress data found');
-    
-    const dailyProgress: DailyProgress[] = JSON.parse(progressData);
-    const dayIndex = dailyProgress.findIndex(d => d.day === day);
-    
-    if (dayIndex === -1) throw new Error('Day not found');
-    
-    const taskIndex = dailyProgress[dayIndex].tasks.findIndex(t => t.id === taskId);
-    if (taskIndex === -1) throw new Error('Task not found');
-    
-    // Mark task as completed
-    dailyProgress[dayIndex].tasks[taskIndex].isCompleted = true;
-    dailyProgress[dayIndex].tasks[taskIndex].completedAt = new Date().toISOString();
-    
-    // Update completed tasks count
-    dailyProgress[dayIndex].completedTasks = dailyProgress[dayIndex].tasks.filter(t => t.isCompleted).length;
-    
-    // Calculate streak
-    let streak = 0;
-    for (let i = dayIndex; i >= 0; i--) {
-      if (dailyProgress[i].completedTasks > 0) {
-        streak++;
-      } else {
-        break;
-      }
-    }
-    dailyProgress[dayIndex].streak = streak;
-    
-    await AsyncStorage.setItem(`dailyProgress_${currentUser.email}`, JSON.stringify(dailyProgress));
-    return dailyProgress;
-  } catch (error) {
-    console.error('Failed to complete task:', error);
-    throw new Error('Failed to complete task');
-  }
-});
-
-export const uncompleteTask = createAsyncThunk('progress/uncompleteTask', async ({ day, taskId }: { day: number; taskId: string }, { getState }) => {
-  try {
-    // Get current user from state to access their specific progress
-    const state = getState() as any;
-    const currentUser = state.user?.user;
-    
-    if (!currentUser?.email) {
-      throw new Error('No current user found');
-    }
-    
-    const progressData = await AsyncStorage.getItem(`dailyProgress_${currentUser.email}`);
-    if (!progressData) throw new Error('No progress data found');
-    
-    const dailyProgress: DailyProgress[] = JSON.parse(progressData);
-    const dayIndex = dailyProgress.findIndex(d => d.day === day);
-    
-    if (dayIndex === -1) throw new Error('Day not found');
-    
-    const taskIndex = dailyProgress[dayIndex].tasks.findIndex(t => t.id === taskId);
-    if (taskIndex === -1) throw new Error('Task not found');
-    
-    // Mark task as uncompleted
-    dailyProgress[dayIndex].tasks[taskIndex].isCompleted = false;
-    delete dailyProgress[dayIndex].tasks[taskIndex].completedAt;
-    
-    // Update completed tasks count
-    dailyProgress[dayIndex].completedTasks = dailyProgress[dayIndex].tasks.filter(t => t.isCompleted).length;
-    
-    await AsyncStorage.setItem(`dailyProgress_${currentUser.email}`, JSON.stringify(dailyProgress));
-    return dailyProgress;
-  } catch (error) {
-    console.error('Failed to uncomplete task:', error);
-    throw new Error('Failed to uncomplete task');
-  }
-});
-
-export const calculateHabitStats = createAsyncThunk('progress/calculateHabitStats', async (_, { getState }) => {
-  try {
-    // Get current user from state to access their specific progress
-    const state = getState() as any;
-    const currentUser = state.user?.user;
-    
-    if (!currentUser?.email) {
-      console.log('No current user found, cannot calculate habit stats');
-      return [];
-    }
-    
-    const progressData = await AsyncStorage.getItem(`dailyProgress_${currentUser.email}`);
-    if (!progressData) return [];
-    
-    const dailyProgress: DailyProgress[] = JSON.parse(progressData);
-    const categories: HabitCategory[] = ['sleep', 'water', 'exercise', 'mind', 'screenTime', 'shower'];
-    const stats: HabitStats[] = [];
-    
-    categories.forEach(category => {
-      let totalCompleted = 0;
-      let currentStreak = 0;
-      let longestStreak = 0;
-      let lastCompleted: string | undefined;
+// Async thunk to load progress from AsyncStorage
+export const loadDailyProgress = createAsyncThunk(
+  'progress/loadDailyProgress',
+  async () => {
+    try {
+      const storedProgress = await AsyncStorage.getItem('dailyProgress');
+      const storedCurrentDay = await AsyncStorage.getItem('currentDay');
       
-      // Calculate stats for this category
-      dailyProgress.forEach(day => {
-        const categoryTasks = day.tasks.filter(t => t.category === category);
-        const completedTasks = categoryTasks.filter(t => t.isCompleted).length;
+      if (storedProgress) {
+        const dailyProgress = JSON.parse(storedProgress);
+        const currentDay = storedCurrentDay ? parseInt(storedCurrentDay) : 1;
         
-        if (completedTasks > 0) {
-          totalCompleted += completedTasks;
-          currentStreak++;
-          if (currentStreak > longestStreak) {
-            longestStreak = currentStreak;
-          }
-          lastCompleted = day.date;
-        } else {
-          currentStreak = 0;
-        }
-      });
+        return { dailyProgress, currentDay };
+      }
       
-      const totalTasks = dailyProgress.reduce((sum, day) => 
-        sum + day.tasks.filter(t => t.category === category).length, 0
-      );
-      
-      stats.push({
-        category,
-        totalCompleted,
-        currentStreak,
-        longestStreak,
-        completionRate: totalTasks > 0 ? (totalCompleted / totalTasks) * 100 : 0,
-        lastCompleted,
-      });
-    });
-    
-    console.log('Calculated habit stats for user:', currentUser.email);
-    return stats;
-  } catch (error) {
-    console.error('Failed to calculate habit stats:', error);
-    throw new Error('Failed to calculate habit stats');
+      return { dailyProgress: [], currentDay: 1 };
+    } catch (error) {
+      console.error('Failed to load progress:', error);
+      return { dailyProgress: [], currentDay: 1 };
+    }
   }
-});
+);
+
+// Async thunk to save progress to AsyncStorage
+export const saveDailyProgress = createAsyncThunk(
+  'progress/saveDailyProgress',
+  async (progress: DailyProgress) => {
+    try {
+      const storedProgress = await AsyncStorage.getItem('dailyProgress');
+      let dailyProgress = storedProgress ? JSON.parse(storedProgress) : [];
+      
+      // Update or add the progress
+      const existingIndex = dailyProgress.findIndex((p: DailyProgress) => p.date === progress.date);
+      if (existingIndex >= 0) {
+        dailyProgress[existingIndex] = progress;
+      } else {
+        dailyProgress.push(progress);
+      }
+      
+      await AsyncStorage.setItem('dailyProgress', JSON.stringify(dailyProgress));
+      return progress;
+    } catch (error) {
+      console.error('Failed to save progress:', error);
+      throw error;
+    }
+  }
+);
+
+// Async thunk to update current day
+export const updateCurrentDay = createAsyncThunk(
+  'progress/updateCurrentDay',
+  async (day: number) => {
+    try {
+      await AsyncStorage.setItem('currentDay', day.toString());
+      return day;
+    } catch (error) {
+      console.error('Failed to update current day:', error);
+      throw error;
+    }
+  }
+);
+
+// Async thunk to complete a task
+export const completeTask = createAsyncThunk(
+  'progress/completeTask',
+  async ({ date, taskId }: { date: string; taskId: string }) => {
+    try {
+      const storedProgress = await AsyncStorage.getItem('dailyProgress');
+      let dailyProgress = storedProgress ? JSON.parse(storedProgress) : [];
+      
+      const progressIndex = dailyProgress.findIndex((p: DailyProgress) => p.date === date);
+      if (progressIndex >= 0) {
+        const taskIndex = dailyProgress[progressIndex].tasks.findIndex(t => t.id === taskId);
+        if (taskIndex >= 0) {
+          dailyProgress[progressIndex].tasks[taskIndex].isCompleted = true;
+          dailyProgress[progressIndex].completedTasks = dailyProgress[progressIndex].tasks.filter(t => t.isCompleted).length;
+          
+          await AsyncStorage.setItem('dailyProgress', JSON.stringify(dailyProgress));
+          return dailyProgress[progressIndex];
+        }
+      }
+      
+      throw new Error('Task or progress not found');
+    } catch (error) {
+      console.error('Failed to complete task:', error);
+      throw error;
+    }
+  }
+);
 
 const progressSlice = createSlice({
   name: 'progress',
@@ -210,11 +139,63 @@ const progressSlice = createSlice({
     setCurrentDay: (state, action: PayloadAction<number>) => {
       state.currentDay = action.payload;
     },
-    setDailyProgress: (state, action: PayloadAction<DailyProgress[]>) => {
-      state.dailyProgress = action.payload;
-    },
     addDailyProgress: (state, action: PayloadAction<DailyProgress>) => {
-      state.dailyProgress.push(action.payload);
+      const existingIndex = state.dailyProgress.findIndex(p => p.date === action.payload.date);
+      if (existingIndex >= 0) {
+        state.dailyProgress[existingIndex] = action.payload;
+      } else {
+        state.dailyProgress.push(action.payload);
+      }
+    },
+    updateTaskCompletion: (state, action: PayloadAction<{ date: string; taskId: string; isCompleted: boolean }>) => {
+      const { date, taskId, isCompleted } = action.payload;
+      const progress = state.dailyProgress.find(p => p.date === date);
+      if (progress) {
+        const task = progress.tasks.find(t => t.id === taskId);
+        if (task) {
+          task.isCompleted = isCompleted;
+          progress.completedTasks = progress.tasks.filter(t => t.isCompleted).length;
+        }
+      }
+    },
+    updateWaterIntake: (state, action: PayloadAction<{ date: string; intake: number }>) => {
+      const { date, intake } = action.payload;
+      const progress = state.dailyProgress.find(p => p.date === date);
+      if (progress) {
+        progress.waterIntake = intake;
+      }
+    },
+    updateExerciseMinutes: (state, action: PayloadAction<{ date: string; minutes: number }>) => {
+      const { date, minutes } = action.payload;
+      const progress = state.dailyProgress.find(p => p.date === date);
+      if (progress) {
+        progress.exerciseMinutes = minutes;
+      }
+    },
+    updateScreenTime: (state, action: PayloadAction<{ date: string; hours: number }>) => {
+      const { date, hours } = action.payload;
+      const progress = state.dailyProgress.find(p => p.date === date);
+      if (progress) {
+        progress.screenTimeHours = hours;
+      }
+    },
+    updateMoodLevels: (state, action: PayloadAction<{ 
+      date: string; 
+      stressLevel?: number; 
+      energyLevel?: number; 
+      motivationLevel?: number; 
+    }>) => {
+      const { date, stressLevel, energyLevel, motivationLevel } = action.payload;
+      const progress = state.dailyProgress.find(p => p.date === date);
+      if (progress) {
+        if (stressLevel !== undefined) progress.stressLevel = stressLevel;
+        if (energyLevel !== undefined) progress.energyLevel = energyLevel;
+        if (motivationLevel !== undefined) progress.motivationLevel = motivationLevel;
+      }
+    },
+    clearProgress: (state) => {
+      state.dailyProgress = [];
+      state.currentDay = 1;
     },
   },
   extraReducers: (builder) => {
@@ -225,23 +206,42 @@ const progressSlice = createSlice({
       })
       .addCase(loadDailyProgress.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.dailyProgress = action.payload;
+        state.dailyProgress = action.payload.dailyProgress;
+        state.currentDay = action.payload.currentDay;
       })
       .addCase(loadDailyProgress.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.error.message || 'Failed to load progress';
       })
       .addCase(saveDailyProgress.fulfilled, (state, action) => {
-        state.dailyProgress = action.payload;
+        const existingIndex = state.dailyProgress.findIndex(p => p.date === action.payload.date);
+        if (existingIndex >= 0) {
+          state.dailyProgress[existingIndex] = action.payload;
+        } else {
+          state.dailyProgress.push(action.payload);
+        }
+      })
+      .addCase(updateCurrentDay.fulfilled, (state, action) => {
+        state.currentDay = action.payload;
       })
       .addCase(completeTask.fulfilled, (state, action) => {
-        state.dailyProgress = action.payload;
-      })
-      .addCase(uncompleteTask.fulfilled, (state, action) => {
-        state.dailyProgress = action.payload;
+        const existingIndex = state.dailyProgress.findIndex(p => p.date === action.payload.date);
+        if (existingIndex >= 0) {
+          state.dailyProgress[existingIndex] = action.payload;
+        }
       });
   },
 });
 
-export const { setCurrentDay, setDailyProgress, addDailyProgress } = progressSlice.actions;
+export const {
+  setCurrentDay,
+  addDailyProgress,
+  updateTaskCompletion,
+  updateWaterIntake,
+  updateExerciseMinutes,
+  updateScreenTime,
+  updateMoodLevels,
+  clearProgress,
+} = progressSlice.actions;
+
 export default progressSlice.reducer; 

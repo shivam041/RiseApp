@@ -1,114 +1,310 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import { useSelector } from 'react-redux';
+import { RootState } from '../store';
+
+const { width, height } = Dimensions.get('window');
 
 interface StatsProps {
   onBack: () => void;
 }
 
+interface RatingCategory {
+  id: string;
+  name: string;
+  currentRating: number;
+  dayOneRating: number;
+  improvement: number;
+  icon: string;
+  color: string;
+}
+
 const Stats: React.FC<StatsProps> = ({ onBack }) => {
   const { theme } = useTheme();
+  const [selectedTab, setSelectedTab] = useState(0);
+  
+  // Get progress data from Redux store
+  const dailyProgress = useSelector((state: RootState) => state.progress.dailyProgress);
+  const currentDay = useSelector((state: RootState) => state.progress.currentDay);
 
-  const stats = [
+  // Calculate ratings based on actual progress
+  const calculateRatings = (): RatingCategory[] => {
+    if (dailyProgress.length === 0) {
+      return getDefaultRatings();
+    }
+
+    const totalDays = dailyProgress.length;
+    const totalTasks = dailyProgress.reduce((sum, day) => sum + day.totalTasks, 0);
+    const totalCompleted = dailyProgress.reduce((sum, day) => sum + day.completedTasks, 0);
+    
+    // Calculate category-specific ratings
+    const categoryStats = {
+      sleep: { completed: 0, total: 0 },
+      water: { completed: 0, total: 0 },
+      exercise: { completed: 0, total: 0 },
+      mind: { completed: 0, total: 0 },
+      shower: { completed: 0, total: 0 },
+    };
+
+    dailyProgress.forEach(day => {
+      day.tasks.forEach(task => {
+        if (categoryStats[task.category as keyof typeof categoryStats]) {
+          categoryStats[task.category as keyof typeof categoryStats].total++;
+          if (task.isCompleted) {
+            categoryStats[task.category as keyof typeof categoryStats].completed++;
+          }
+        }
+      });
+    });
+
+    const overallRating = Math.min(100, Math.round((totalCompleted / totalTasks) * 100) + 50);
+    const dayOneRating = Math.max(30, overallRating - 35);
+
+    return [
+      {
+        id: 'overall',
+        name: 'Overall',
+        currentRating: overallRating,
+        dayOneRating: dayOneRating,
+        improvement: overallRating - dayOneRating,
+        icon: 'star',
+        color: '#F59E0B',
+      },
+      {
+        id: 'wisdom',
+        name: 'Wisdom',
+        currentRating: Math.min(100, Math.round((categoryStats.mind.completed / categoryStats.mind.total) * 100) + 50),
+        dayOneRating: 42,
+        improvement: Math.min(100, Math.round((categoryStats.mind.completed / categoryStats.mind.total) * 100) + 50) - 42,
+        icon: 'brain',
+        color: '#8B5CF6',
+      },
+      {
+        id: 'strength',
+        name: 'Strength',
+        currentRating: Math.min(100, Math.round((categoryStats.exercise.completed / categoryStats.exercise.total) * 100) + 50),
+        dayOneRating: 51,
+        improvement: Math.min(100, Math.round((categoryStats.exercise.completed / categoryStats.exercise.total) * 100) + 50) - 51,
+        icon: 'fitness',
+        color: '#10B981',
+      },
+      {
+        id: 'focus',
+        name: 'Focus',
+        currentRating: Math.min(100, Math.round((categoryStats.sleep.completed / categoryStats.sleep.total) * 100) + 50),
+        dayOneRating: 48,
+        improvement: Math.min(100, Math.round((categoryStats.sleep.completed / categoryStats.sleep.total) * 100) + 50) - 48,
+        icon: 'eye',
+        color: '#06B6D4',
+      },
+      {
+        id: 'confidence',
+        name: 'Confidence',
+        currentRating: Math.min(100, Math.round((totalCompleted / totalTasks) * 100) + 45),
+        dayOneRating: 44,
+        improvement: Math.min(100, Math.round((totalCompleted / totalTasks) * 100) + 45) - 44,
+        icon: 'person',
+        color: '#EF4444',
+      },
+      {
+        id: 'purpose',
+        name: 'Purpose',
+        currentRating: Math.min(100, Math.round((totalCompleted / totalTasks) * 100) + 40),
+        dayOneRating: 45,
+        improvement: Math.min(100, Math.round((totalCompleted / totalTasks) * 100) + 40) - 45,
+        icon: 'flag',
+        color: '#8B5CF6',
+      },
+    ];
+  };
+
+  const getDefaultRatings = (): RatingCategory[] => [
     {
-      category: 'Sleep',
-      icon: 'bed',
+      id: 'overall',
+      name: 'Overall',
+      currentRating: 53,
+      dayOneRating: 53,
+      improvement: 0,
+      icon: 'star',
+      color: '#F59E0B',
+    },
+    {
+      id: 'wisdom',
+      name: 'Wisdom',
+      currentRating: 42,
+      dayOneRating: 42,
+      improvement: 0,
+      icon: 'brain',
       color: '#8B5CF6',
-      current: 7,
-      target: 8,
-      unit: 'hours',
-      streak: 5,
     },
     {
-      category: 'Water',
-      icon: 'water',
-      color: '#06B6D4',
-      current: 6,
-      target: 8,
-      unit: 'glasses',
-      streak: 12,
-    },
-    {
-      category: 'Exercise',
+      id: 'strength',
+      name: 'Strength',
+      currentRating: 51,
+      dayOneRating: 51,
+      improvement: 0,
       icon: 'fitness',
       color: '#10B981',
-      current: 25,
-      target: 30,
-      unit: 'minutes',
-      streak: 8,
+    },
+    {
+      id: 'focus',
+      name: 'Focus',
+      currentRating: 48,
+      dayOneRating: 48,
+      improvement: 0,
+      icon: 'eye',
+      color: '#06B6D4',
+    },
+    {
+      id: 'confidence',
+      name: 'Confidence',
+      currentRating: 44,
+      dayOneRating: 44,
+      improvement: 0,
+      icon: 'person',
+      color: '#EF4444',
+    },
+    {
+      id: 'purpose',
+      name: 'Purpose',
+      currentRating: 45,
+      dayOneRating: 45,
+      improvement: 0,
+      icon: 'flag',
+      color: '#8B5CF6',
     },
   ];
 
-  const renderProgressBar = (percentage: number, color: string) => (
-    <View style={styles.progressBar}>
-      <View
-        style={[
-          styles.progressFill,
-          {
-            width: `${Math.min(percentage, 100)}%`,
-            backgroundColor: color,
-          },
-        ]}
-      />
-    </View>
-  );
+  const [ratingCategories, setRatingCategories] = useState<RatingCategory[]>(getDefaultRatings());
 
-  const renderStatCard = (stat: any) => {
-    const percentage = (stat.current / stat.target) * 100;
+  useEffect(() => {
+    setRatingCategories(calculateRatings());
+  }, [dailyProgress]);
 
+  const tabs = [
+    { name: 'Current rating', id: 'current' },
+    { name: 'Day 1 rating', id: 'day1' },
+    { name: 'Potential', id: 'potential' },
+  ];
+
+  const renderRatingCard = (category: RatingCategory, index: number) => {
+    const isOverall = category.id === 'overall';
+    const rating = selectedTab === 0 ? category.currentRating : 
+                  selectedTab === 1 ? category.dayOneRating : 
+                  Math.min(100, category.currentRating + 15);
+    
     return (
       <View
-        key={stat.category}
+        key={category.id}
         style={[
-          styles.statCard,
+          styles.ratingCard,
           {
-            backgroundColor: theme.colors.surface,
+            backgroundColor: isOverall ? category.color : theme.colors.surface,
             borderColor: theme.colors.border,
           },
         ]}
       >
-        <View style={styles.statHeader}>
-          <View
-            style={[
-              styles.categoryIcon,
-              { backgroundColor: stat.color },
-            ]}
-          >
-            <Ionicons name={stat.icon as any} size={20} color="white" />
+        <View style={styles.ratingHeader}>
+          <View style={styles.ratingIconContainer}>
+            <Ionicons
+              name={category.icon as any}
+              size={20}
+              color={isOverall ? 'white' : category.color}
+            />
           </View>
-          <View style={styles.statInfo}>
-            <Text style={[styles.statTitle, { color: theme.colors.text }]}>
-              {stat.category}
-            </Text>
-            <Text style={[styles.statStreak, { color: theme.colors.textSecondary }]}>
-              {stat.streak} day streak
-            </Text>
-          </View>
+          <Text style={[
+            styles.ratingName,
+            { color: isOverall ? 'white' : theme.colors.text }
+          ]}>
+            {category.name}
+          </Text>
         </View>
         
-        <View style={styles.statProgress}>
-          <View style={styles.statNumbers}>
-            <Text style={[styles.currentValue, { color: theme.colors.text }]}>
-              {stat.current}
-            </Text>
-            <Text style={[styles.targetValue, { color: theme.colors.textSecondary }]}>
-              / {stat.target} {stat.unit}
-            </Text>
-          </View>
-          {renderProgressBar(percentage, stat.color)}
-          <Text style={[styles.percentageText, { color: stat.color }]}>
-            {Math.round(percentage)}%
+        <View style={styles.ratingScore}>
+          <Text style={[
+            styles.ratingNumber,
+            { color: isOverall ? 'white' : theme.colors.text }
+          ]}>
+            {rating}
           </Text>
+          {selectedTab === 0 && (
+            <Text style={[
+              styles.improvementText,
+              { color: isOverall ? 'white' : theme.colors.primary }
+            ]}>
+              +{category.improvement}▲
+            </Text>
+          )}
+        </View>
+
+        {/* Simple line graph representation */}
+        <View style={styles.graphContainer}>
+          <View style={styles.graphLine}>
+            {[1, 2, 3, 4, 5].map((point, i) => (
+              <View
+                key={i}
+                style={[
+                  styles.graphPoint,
+                  {
+                    backgroundColor: isOverall ? 'white' : theme.colors.primary,
+                    opacity: 0.3 + (i * 0.15),
+                  },
+                ]}
+              />
+            ))}
+          </View>
         </View>
       </View>
     );
+  };
+
+  const renderTabContent = () => {
+    switch (selectedTab) {
+      case 0: // Current rating
+        return (
+          <View style={styles.tabContent}>
+            <Text style={[styles.tabDescription, { color: theme.colors.textSecondary }]}>
+              Your rating reflect your current lifestyle. Increase rating by completing tasks daily.
+            </Text>
+            <View style={styles.ratingGrid}>
+              {ratingCategories.map((category, index) => renderRatingCard(category, index))}
+            </View>
+          </View>
+        );
+      case 1: // Day 1 rating
+        return (
+          <View style={styles.tabContent}>
+            <Text style={[styles.tabDescription, { color: theme.colors.textSecondary }]}>
+              This is where you started. Look how far you've come!
+            </Text>
+            <View style={styles.ratingGrid}>
+              {ratingCategories.map((category, index) => renderRatingCard(category, index))}
+            </View>
+          </View>
+        );
+      case 2: // Potential
+        return (
+          <View style={styles.tabContent}>
+            <Text style={[styles.tabDescription, { color: theme.colors.textSecondary }]}>
+              Your potential if you maintain consistency. Keep pushing forward!
+            </Text>
+            <View style={styles.ratingGrid}>
+              {ratingCategories.map((category, index) => renderRatingCard(category, index))}
+            </View>
+          </View>
+        );
+      default:
+        return null;
+    }
   };
 
   return (
@@ -119,61 +315,72 @@ const Stats: React.FC<StatsProps> = ({ onBack }) => {
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
-          Your Progress
+          My Rise rating
         </Text>
-        <View style={styles.placeholder} />
+        <View style={styles.headerRight} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Overview Card */}
-        <View
-          style={[
-            styles.overviewCard,
-            {
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.border,
-            },
-          ]}
-        >
-          <Text style={[styles.overviewTitle, { color: theme.colors.text }]}>
-            Overall Progress
-          </Text>
-          <View style={styles.overviewStats}>
-            <View style={styles.overviewStat}>
-              <Text style={[styles.overviewNumber, { color: theme.colors.primary }]}>
-                18
+        {/* Tab Navigation */}
+        <View style={styles.tabContainer}>
+          {tabs.map((tab, index) => (
+            <TouchableOpacity
+              key={tab.id}
+              style={[
+                styles.tab,
+                selectedTab === index && {
+                  backgroundColor: theme.colors.primary,
+                },
+              ]}
+              onPress={() => setSelectedTab(index)}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  {
+                    color: selectedTab === index ? 'white' : theme.colors.textSecondary,
+                  },
+                ]}
+              >
+                {tab.name}
               </Text>
-              <Text style={[styles.overviewLabel, { color: theme.colors.textSecondary }]}>
-                Days
-              </Text>
-            </View>
-            <View style={styles.overviewStat}>
-              <Text style={[styles.overviewNumber, { color: theme.colors.primary }]}>
-                87%
-              </Text>
-              <Text style={[styles.overviewLabel, { color: theme.colors.textSecondary }]}>
-                Success Rate
-              </Text>
-            </View>
-            <View style={styles.overviewStat}>
-              <Text style={[styles.overviewNumber, { color: theme.colors.primary }]}>
-                12
-              </Text>
-              <Text style={[styles.overviewLabel, { color: theme.colors.textSecondary }]}>
-                Current Streak
-              </Text>
-            </View>
-          </View>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        {/* Stats Section */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-            Habit Tracking
-          </Text>
-          {stats.map(renderStatCard)}
-        </View>
+        {/* Tab Content */}
+        {renderTabContent()}
       </ScrollView>
+
+      {/* Bottom Navigation */}
+      <View
+        style={[
+          styles.bottomNav,
+          {
+            backgroundColor: theme.colors.surface,
+            borderTopColor: theme.colors.border,
+          },
+        ]}
+      >
+        <TouchableOpacity style={styles.navItem}>
+          <Ionicons name="stats-chart" size={24} color={theme.colors.primary} />
+          <Text style={[styles.navText, { color: theme.colors.primary }]}>Stats</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem}>
+          <View style={styles.riseLogo}>
+            <Ionicons name="sunny" size={24} color="#F59E0B" />
+          </View>
+          <Text style={[styles.navText, { color: theme.colors.textSecondary }]}>Rise</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem}>
+          <Ionicons name="trophy" size={24} color={theme.colors.textSecondary} />
+          <Text style={[styles.navText, { color: theme.colors.textSecondary }]}>Trophy</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem}>
+          <Ionicons name="grid" size={24} color={theme.colors.textSecondary} />
+          <Text style={[styles.navText, { color: theme.colors.textSecondary }]}>More</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -194,112 +401,131 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 24,
+    fontWeight: 'bold',
+    flex: 1,
+    textAlign: 'center',
   },
-  placeholder: {
+  headerRight: {
     width: 40,
   },
   content: {
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingBottom: 100,
   },
-  overviewCard: {
-    padding: 20,
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#2D1B1B',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 24,
+  },
+  tab: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  tabContent: {
+    marginBottom: 24,
+  },
+  tabDescription: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 24,
+  },
+  ratingGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  ratingCard: {
+    width: '48%',
+    padding: 16,
     borderRadius: 16,
     borderWidth: 1,
-    marginBottom: 24,
-  },
-  overviewTitle: {
-    fontSize: 18,
-    fontWeight: '600',
     marginBottom: 16,
-    textAlign: 'center',
+    minHeight: 120,
   },
-  overviewStats: {
+  ratingHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  overviewStat: {
     alignItems: 'center',
-  },
-  overviewNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  overviewLabel: {
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  statCard: {
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
     marginBottom: 12,
   },
-  statHeader: {
+  ratingIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  ratingName: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  ratingScore: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 16,
   },
-  categoryIcon: {
+  ratingNumber: {
+    fontSize: 32,
+    fontWeight: 'bold',
+  },
+  improvementText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  graphContainer: {
+    height: 20,
+    justifyContent: 'center',
+  },
+  graphLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+  },
+  graphPoint: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+  },
+  bottomNav: {
+    flexDirection: 'row',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  navItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  navText: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  riseLogo: {
     width: 40,
     height: 40,
     borderRadius: 20,
+    backgroundColor: '#1F2937',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
-  },
-  statInfo: {
-    flex: 1,
-  },
-  statTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  statStreak: {
-    fontSize: 12,
-  },
-  statProgress: {
-    alignItems: 'center',
-  },
-  statNumbers: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: 8,
-  },
-  currentValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  targetValue: {
-    fontSize: 16,
-  },
-  progressBar: {
-    width: '100%',
-    height: 8,
-    backgroundColor: '#3D2A2A',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  percentageText: {
-    fontSize: 14,
-    fontWeight: '600',
   },
 });
 

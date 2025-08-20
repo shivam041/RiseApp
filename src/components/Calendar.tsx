@@ -1,288 +1,351 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Dimensions,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSelector, useDispatch } from 'react-redux';
-import { RootState } from '../store';
 import { useTheme } from '../context/ThemeContext';
-import { DailyProgress, Task } from '../types';
+import { useSelector } from 'react-redux';
+import { RootState } from '../store';
+
+const { width, height } = Dimensions.get('window');
 
 interface CalendarProps {
   onBack: () => void;
 }
 
+interface WeekTask {
+  id: string;
+  title: string;
+  days: string;
+  description: string;
+}
+
 const Calendar: React.FC<CalendarProps> = ({ onBack }) => {
   const { theme } = useTheme();
-  const dispatch = useDispatch();
-  const dailyProgress = useSelector((state: RootState) => state.progress.dailyProgress);
-  const questionnaire = useSelector((state: RootState) => state.questionnaire.questionnaire);
+  const [selectedWeek, setSelectedWeek] = useState(1);
   
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  // Get progress data from Redux store
+  const currentDay = useSelector((state: RootState) => state.progress.currentDay);
+  const dailyProgress = useSelector((state: RootState) => state.progress.dailyProgress);
 
-  const getDaysInMonth = (date: Date) => {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startingDay = firstDay.getDay();
-    
-    return { daysInMonth, startingDay };
+  // Calculate which week the user is currently in
+  const getCurrentWeek = () => {
+    return Math.ceil(currentDay / 7);
   };
 
-  const getProgressForDate = (date: Date) => {
-    const dateString = date.toISOString().split('T')[0];
-    return dailyProgress.find(progress => progress.date === dateString);
-  };
+  // Update selected week to current week when component mounts
+  useEffect(() => {
+    const week = getCurrentWeek();
+    setSelectedWeek(Math.min(week, 10)); // Cap at week 10
+  }, [currentDay]);
 
-  const getDayTasks = (date: Date) => {
-    if (!questionnaire) return [];
-    
-    const tasks: Task[] = [
-      {
-        id: 'sleep',
-        day: 1,
-        category: 'sleep',
-        title: `Wake up at ${questionnaire.sleepGoal}`,
-        description: 'Start your day with purpose',
-        isCompleted: false,
-        difficulty: 'medium',
-        estimatedTime: 0,
-        tips: ['Go to bed early', 'Avoid screens before sleep']
-      },
-      {
-        id: 'water',
-        day: 1,
-        category: 'water',
-        title: `Drink ${questionnaire.waterGoal} glasses of water`,
-        description: 'Stay hydrated throughout the day',
-        isCompleted: false,
-        difficulty: 'easy',
-        estimatedTime: 0,
-        tips: ['Keep water bottle nearby', 'Set hourly reminders']
-      },
-      {
-        id: 'exercise',
-        day: 1,
-        category: 'exercise',
-        title: `Exercise for ${questionnaire.exerciseGoal} minutes`,
-        description: 'Build strength and endurance',
-        isCompleted: false,
-        difficulty: 'hard',
-        estimatedTime: parseInt(questionnaire.exerciseGoal),
-        tips: ['Start with warm-up', 'Find activities you enjoy']
-      },
-      {
-        id: 'mind',
-        day: 1,
-        category: 'mind',
-        title: `Meditate for ${questionnaire.mindGoal} minutes`,
-        description: 'Develop mental clarity and focus',
-        isCompleted: false,
-        difficulty: 'medium',
-        estimatedTime: parseInt(questionnaire.mindGoal),
-        tips: ['Find quiet space', 'Focus on breathing']
-      },
-      {
-        id: 'screen',
-        day: 1,
-        category: 'screenTime',
-        title: `Limit screen time to ${questionnaire.screenTimeGoal} hours`,
-        description: 'Reduce digital distractions',
-        isCompleted: false,
-        difficulty: 'hard',
-        estimatedTime: 0,
-        tips: ['Use app timers', 'Find offline activities']
-      },
-      {
-        id: 'shower',
-        day: 1,
-        category: 'shower',
-        title: `Cold shower for ${questionnaire.showerGoal} minutes`,
-        description: 'Build mental resilience',
-        isCompleted: false,
-        difficulty: 'hard',
-        estimatedTime: parseInt(questionnaire.showerGoal),
-        tips: ['Start with warm water', 'Gradually reduce temperature']
-      }
-    ];
-    
-    return tasks;
-  };
+  const weeks = [
+    {
+      id: 1,
+      title: 'Week 1',
+      days: 'Days 1-7',
+      activeDays: [1, 2, 3, 4, 5, 6, 7],
+      tasks: [
+        'Wake up at 7AM from Day 2 to Day 6',
+        'Drink 2L water everyday',
+        'Do 10 push ups on Day 1',
+        'Run 2km on Day 3 and Day 5',
+      ],
+    },
+    {
+      id: 2,
+      title: 'Week 2',
+      days: 'Days 8-14',
+      activeDays: [8, 9, 10, 11, 12, 13, 14],
+      tasks: [
+        'Wake up at 7AM everyday',
+        'Drink 2L water everyday',
+        'Exercise 30 minutes daily',
+        'Meditate 10 minutes daily',
+      ],
+    },
+    {
+      id: 3,
+      title: 'Week 3',
+      days: 'Days 15-21',
+      activeDays: [15, 16, 17, 18, 19, 20, 21],
+      tasks: [
+        'Wake up at 7AM everyday',
+        'Drink 2L water everyday',
+        'Exercise 30 minutes daily',
+        'Meditate 10 minutes daily',
+        'Take cold shower 3x/week',
+      ],
+    },
+    {
+      id: 4,
+      title: 'Week 4',
+      days: 'Days 22-28',
+      activeDays: [22, 23, 24, 25, 26, 27, 28],
+      tasks: [
+        'Wake up at 7AM everyday',
+        'Drink 2L water everyday',
+        'Exercise 45 minutes daily',
+        'Meditate 15 minutes daily',
+        'Take cold shower 4x/week',
+        'Read 30 minutes daily',
+      ],
+    },
+    {
+      id: 5,
+      title: 'Week 5',
+      days: 'Days 29-35',
+      activeDays: [29, 30, 31, 32, 33, 34, 35],
+      tasks: [
+        'Wake up at 6:30AM everyday',
+        'Drink 2.5L water everyday',
+        'Exercise 45 minutes daily',
+        'Meditate 15 minutes daily',
+        'Take cold shower 5x/week',
+        'Read 30 minutes daily',
+        'Limit screen time to 3 hours',
+      ],
+    },
+    {
+      id: 6,
+      title: 'Week 6',
+      days: 'Days 36-42',
+      activeDays: [36, 37, 38, 39, 40, 41, 42],
+      tasks: [
+        'Wake up at 6:30AM everyday',
+        'Drink 2.5L water everyday',
+        'Exercise 60 minutes daily',
+        'Meditate 20 minutes daily',
+        'Take cold shower 6x/week',
+        'Read 45 minutes daily',
+        'Limit screen time to 2.5 hours',
+      ],
+    },
+    {
+      id: 7,
+      title: 'Week 7',
+      days: 'Days 43-49',
+      activeDays: [43, 44, 45, 46, 47, 48, 49],
+      tasks: [
+        'Wake up at 6:00AM everyday',
+        'Drink 3L water everyday',
+        'Exercise 60 minutes daily',
+        'Meditate 20 minutes daily',
+        'Take cold shower daily',
+        'Read 45 minutes daily',
+        'Limit screen time to 2 hours',
+        'Journal daily',
+      ],
+    },
+    {
+      id: 8,
+      title: 'Week 8',
+      days: 'Days 50-56',
+      activeDays: [50, 51, 52, 53, 54, 55, 56],
+      tasks: [
+        'Wake up at 6:00AM everyday',
+        'Drink 3L water everyday',
+        'Exercise 75 minutes daily',
+        'Meditate 25 minutes daily',
+        'Take cold shower daily',
+        'Read 60 minutes daily',
+        'Limit screen time to 2 hours',
+        'Journal daily',
+        'Practice gratitude',
+      ],
+    },
+    {
+      id: 9,
+      title: 'Week 9',
+      days: 'Days 57-63',
+      activeDays: [57, 58, 59, 60, 61, 62, 63],
+      tasks: [
+        'Wake up at 5:30AM everyday',
+        'Drink 3L water everyday',
+        'Exercise 75 minutes daily',
+        'Meditate 25 minutes daily',
+        'Take cold shower daily',
+        'Read 60 minutes daily',
+        'Limit screen time to 1.5 hours',
+        'Journal daily',
+        'Practice gratitude',
+        'Help someone daily',
+      ],
+    },
+    {
+      id: 10,
+      title: 'Week 10',
+      days: 'Days 64-66',
+      activeDays: [64, 65, 66],
+      tasks: [
+        'Wake up at 5:30AM everyday',
+        'Drink 3L water everyday',
+        'Exercise 90 minutes daily',
+        'Meditate 30 minutes daily',
+        'Take cold shower daily',
+        'Read 60 minutes daily',
+        'Limit screen time to 1 hour',
+        'Journal daily',
+        'Practice gratitude',
+        'Help someone daily',
+        'Reflect on your journey',
+      ],
+    },
+  ];
 
-  const renderCalendarHeader = () => (
-    <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
-      <TouchableOpacity onPress={onBack} style={styles.backButton}>
-        <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-      </TouchableOpacity>
-      <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
-        {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-      </Text>
-      <View style={styles.headerActions}>
-        <TouchableOpacity 
-          onPress={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
-          style={styles.monthButton}
-        >
-          <Ionicons name="chevron-back" size={20} color={theme.colors.text} />
-        </TouchableOpacity>
-        <TouchableOpacity 
-          onPress={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
-          style={styles.monthButton}
-        >
-          <Ionicons name="chevron-forward" size={20} color={theme.colors.text} />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+  const currentWeek = weeks.find(w => w.id === selectedWeek);
 
-  const renderCalendarDays = () => {
-    const { daysInMonth, startingDay } = getDaysInMonth(currentMonth);
+  const renderCalendar = () => {
     const days = [];
-    
-    // Add empty cells for days before the first day of the month
-    for (let i = 0; i < startingDay; i++) {
-      days.push(<View key={`empty-${i}`} style={styles.calendarDay} />);
-    }
-    
-    // Add days of the month
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-      const progress = getProgressForDate(date);
-      const isToday = date.toDateString() === new Date().toDateString();
-      const isSelected = date.toDateString() === selectedDate.toDateString();
+    for (let i = 1; i <= 31; i++) {
+      const isActive = currentWeek?.activeDays.includes(i);
+      const isCurrentDay = i === currentDay;
+      const isCompleted = dailyProgress.some(day => 
+        day.date === new Date().toISOString().split('T')[0] && 
+        day.completedTasks > 0
+      );
       
       days.push(
-        <TouchableOpacity
-          key={day}
+        <View
+          key={i}
           style={[
             styles.calendarDay,
-            isToday && { borderColor: theme.colors.primary, borderWidth: 2 },
-            isSelected && { backgroundColor: theme.colors.primary }
+            isActive && styles.calendarDayActive,
+            isCurrentDay && styles.calendarDayCurrent,
+            isCompleted && styles.calendarDayCompleted,
           ]}
-          onPress={() => setSelectedDate(date)}
         >
           <Text style={[
-            styles.dayText,
-            { color: theme.colors.text },
-            isSelected && { color: theme.colors.background }
+            styles.calendarDayText,
+            isActive && styles.calendarDayTextActive,
+            isCurrentDay && styles.calendarDayTextCurrent,
           ]}>
-            {day}
+            {i}
           </Text>
-          {progress && (
-            <View style={styles.progressIndicator}>
-              <Text style={[styles.progressText, { color: theme.colors.success }]}>
-                {progress.completedTasks}/{progress.totalTasks}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
+        </View>
       );
     }
-    
-    return days;
-  };
 
-  const renderSelectedDateDetails = () => {
-    const progress = getProgressForDate(selectedDate);
-    const tasks = getDayTasks(selectedDate);
-    
     return (
-      <View style={[styles.dateDetails, { backgroundColor: theme.colors.surface }]}>
-        <Text style={[styles.dateTitle, { color: theme.colors.text }]}>
-          {selectedDate.toLocaleDateString('en-US', { 
-            weekday: 'long', 
-            month: 'long', 
-            day: 'numeric' 
-          })}
+      <View style={styles.calendarContainer}>
+        <Text style={[styles.calendarTitle, { color: theme.colors.text }]}>
+          May 2024
         </Text>
-        
-        {progress ? (
-          <View style={styles.progressSection}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
-              Progress: {progress.completedTasks}/{progress.totalTasks} completed
-            </Text>
-            <View style={styles.progressBar}>
-              <View 
-                style={[
-                  styles.progressFill, 
-                  { 
-                    width: `${(progress.completedTasks / progress.totalTasks) * 100}%`,
-                    backgroundColor: theme.colors.primary
-                  }
-                ]} 
-              />
-            </View>
-          </View>
-        ) : (
-          <Text style={[styles.noProgressText, { color: theme.colors.textSecondary }]}>
-            No progress recorded for this day
-          </Text>
-        )}
-        
-        <View style={styles.tasksSection}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
-            Today's Goals
-          </Text>
-          <ScrollView style={styles.tasksList}>
-            {tasks.map((task) => (
-              <View key={task.id} style={styles.taskItem}>
-                <View style={styles.taskHeader}>
-                  <Ionicons 
-                    name={getTaskIcon(task.category)} 
-                    size={20} 
-                    color={theme.colors.primary} 
-                  />
-                  <Text style={[styles.taskTitle, { color: theme.colors.text }]}>
-                    {task.title}
-                  </Text>
-                </View>
-                <Text style={[styles.taskDescription, { color: theme.colors.textSecondary }]}>
-                  {task.description}
-                </Text>
-                {task.estimatedTime > 0 && (
-                  <Text style={[styles.taskTime, { color: theme.colors.textSecondary }]}>
-                    ⏱️ {task.estimatedTime} minutes
-                  </Text>
-                )}
-              </View>
-            ))}
-          </ScrollView>
+        <View style={styles.calendarGrid}>
+          {days}
         </View>
       </View>
     );
   };
 
-  const getTaskIcon = (category: string) => {
-    switch (category) {
-      case 'sleep': return 'bed';
-      case 'water': return 'water';
-      case 'exercise': return 'fitness';
-      case 'mind': return 'leaf';
-      case 'screenTime': return 'phone-portrait';
-      case 'shower': return 'water';
-      default: return 'checkmark-circle';
-    }
-  };
+  const renderWeekSelector = () => (
+    <View style={styles.weekSelector}>
+      <Text style={[styles.weekSelectorTitle, { color: theme.colors.text }]}>
+        Select a week to view detailed routine
+      </Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View style={styles.weekButtons}>
+          {weeks.map((week) => (
+            <TouchableOpacity
+              key={week.id}
+              style={[
+                styles.weekButton,
+                selectedWeek === week.id && styles.weekButtonActive,
+              ]}
+              onPress={() => setSelectedWeek(week.id)}
+            >
+              <Text style={[
+                styles.weekButtonText,
+                selectedWeek === week.id && styles.weekButtonTextActive,
+              ]}>
+                {week.title}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
+    </View>
+  );
+
+  const renderWeekTasks = () => (
+    <View style={styles.weekTasksContainer}>
+      <Text style={[styles.weekTasksTitle, { color: theme.colors.text }]}>
+        Tasks of {currentWeek?.title}
+      </Text>
+      {currentWeek?.tasks.map((task, index) => (
+        <View key={index} style={styles.taskItem}>
+          <View style={styles.taskBullet} />
+          <Text style={[styles.taskText, { color: theme.colors.text }]}>
+            {task}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {renderCalendarHeader()}
-      
-      <View style={styles.calendarContainer}>
-        <View style={styles.weekDays}>
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-            <Text key={day} style={[styles.weekDay, { color: theme.colors.textSecondary }]}>
-              {day}
-            </Text>
-          ))}
-        </View>
-        
-        <View style={styles.calendarGrid}>
-          {renderCalendarDays()}
-        </View>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={onBack} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
+          Your next 66 days
+        </Text>
+        <View style={styles.headerRight} />
       </View>
-      
-      {renderSelectedDateDetails()}
+
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Description */}
+        <Text style={[styles.description, { color: theme.colors.textSecondary }]}>
+          The program is personalised on your current lifestyle. Tap on a week for detailed routine.
+        </Text>
+
+        {/* Week Selector */}
+        {renderWeekSelector()}
+
+        {/* Calendar */}
+        {renderCalendar()}
+
+        {/* Week Tasks */}
+        {renderWeekTasks()}
+      </ScrollView>
+
+      {/* Bottom Navigation */}
+      <View
+        style={[
+          styles.bottomNav,
+          {
+            backgroundColor: theme.colors.surface,
+            borderTopColor: theme.colors.border,
+          },
+        ]}
+      >
+        <TouchableOpacity style={styles.navItem}>
+          <Ionicons name="stats-chart" size={24} color={theme.colors.textSecondary} />
+          <Text style={[styles.navText, { color: theme.colors.textSecondary }]}>Stats</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem}>
+          <View style={styles.riseLogo}>
+            <Ionicons name="sunny" size={24} color="#F59E0B" />
+          </View>
+          <Text style={[styles.navText, { color: theme.colors.textSecondary }]}>Rise</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem}>
+          <Ionicons name="trophy" size={24} color={theme.colors.primary} />
+          <Text style={[styles.navText, { color: theme.colors.primary }]}>Trophy</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem}>
+          <Ionicons name="grid" size={24} color={theme.colors.textSecondary} />
+          <Text style={[styles.navText, { color: theme.colors.textSecondary }]}>More</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -296,130 +359,162 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#3D2A2A',
+    paddingTop: 60,
+    paddingBottom: 20,
   },
   backButton: {
-    padding: 5,
+    padding: 8,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  monthButton: {
-    padding: 8,
-    marginHorizontal: 5,
-  },
-  calendarContainer: {
-    padding: 20,
-  },
-  weekDays: {
-    flexDirection: 'row',
-    marginBottom: 10,
-  },
-  weekDay: {
     flex: 1,
     textAlign: 'center',
+  },
+  headerRight: {
+    width: 40,
+  },
+  content: {
+    paddingHorizontal: 20,
+    paddingBottom: 100,
+  },
+  description: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 24,
+  },
+  weekSelector: {
+    marginBottom: 24,
+  },
+  weekSelectorTitle: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 16,
+    fontWeight: '500',
+  },
+  weekButtons: {
+    flexDirection: 'row',
+    paddingHorizontal: 10,
+  },
+  weekButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 20,
+    backgroundColor: '#2D1B1B',
+    marginHorizontal: 5,
+    borderWidth: 1,
+    borderColor: '#3D2A2A',
+  },
+  weekButtonActive: {
+    backgroundColor: '#F59E0B',
+    borderColor: '#F59E0B',
+  },
+  weekButtonText: {
     fontSize: 14,
+    fontWeight: '500',
+    color: '#8E8E93',
+  },
+  weekButtonTextActive: {
+    color: 'white',
+  },
+  calendarContainer: {
+    marginBottom: 24,
+  },
+  calendarTitle: {
+    fontSize: 18,
     fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 16,
   },
   calendarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
   },
   calendarDay: {
-    width: (Dimensions.get('window').width - 60) / 7,
-    height: 50,
-    alignItems: 'center',
+    width: 30,
+    height: 30,
     justifyContent: 'center',
+    alignItems: 'center',
     margin: 2,
-    borderRadius: 8,
+    borderRadius: 15,
+    backgroundColor: '#2D1B1B',
   },
-  dayText: {
-    fontSize: 16,
+  calendarDayActive: {
+    backgroundColor: '#F59E0B',
+  },
+  calendarDayCurrent: {
+    backgroundColor: '#F59E0B',
+    borderWidth: 2,
+    borderColor: 'white',
+  },
+  calendarDayCompleted: {
+    backgroundColor: '#4CAF50', // A green color for completed days
+  },
+  calendarDayText: {
+    fontSize: 12,
+    color: '#8E8E93',
+    fontWeight: '500',
+  },
+  calendarDayTextActive: {
+    color: 'white',
+  },
+  calendarDayTextCurrent: {
+    color: 'white',
+  },
+  weekTasksContainer: {
+    marginBottom: 24,
+  },
+  weekTasksTitle: {
+    fontSize: 18,
     fontWeight: '600',
-  },
-  progressIndicator: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
-  },
-  progressText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  dateDetails: {
-    flex: 1,
-    padding: 20,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-  },
-  dateTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  progressSection: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 10,
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: '#3D2A2A',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  noProgressText: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 20,
-    fontStyle: 'italic',
-  },
-  tasksSection: {
-    flex: 1,
-  },
-  tasksList: {
-    flex: 1,
+    marginBottom: 16,
   },
   taskItem: {
-    backgroundColor: '#2D1B1B',
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 10,
-  },
-  taskHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
+    alignItems: 'flex-start',
+    marginBottom: 12,
   },
-  taskTitle: {
+  taskBullet: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#F59E0B',
+    marginTop: 6,
+    marginRight: 12,
+  },
+  taskText: {
     fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 10,
+    lineHeight: 24,
     flex: 1,
   },
-  taskDescription: {
-    fontSize: 14,
-    marginBottom: 8,
-    lineHeight: 20,
+  bottomNav: {
+    flexDirection: 'row',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
-  taskTime: {
+  navItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  navText: {
     fontSize: 12,
-    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  riseLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#1F2937',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

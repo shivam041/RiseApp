@@ -1,385 +1,344 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  TextInput,
+  Dimensions,
+  Alert,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState, AppDispatch } from '../store';
+import { updateMoodLevels } from '../store/slices/progressSlice';
+
+const { width, height } = Dimensions.get('window');
 
 interface NotesProps {
   onBack: () => void;
 }
 
-interface Note {
+interface JourneyEntry {
   id: string;
+  date: string;
+  title: string;
+  mood: string;
+  moodEmoji: string;
   text: string;
-  isCompleted: boolean;
-  createdAt: string;
-  completedAt?: string;
-  priority: 'low' | 'medium' | 'high';
+  hasVlog: boolean;
+  hasPhoto: boolean;
 }
 
 const Notes: React.FC<NotesProps> = ({ onBack }) => {
   const { theme } = useTheme();
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [newNoteText, setNewNoteText] = useState('');
-  const [selectedPriority, setSelectedPriority] = useState<'low' | 'medium' | 'high'>('medium');
-  const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
+  const dispatch = useDispatch<AppDispatch>();
+  const [selectedEntry, setSelectedEntry] = useState<string | null>(null);
+  const [newText, setNewText] = useState('');
+  const [selectedMood, setSelectedMood] = useState<string>('');
 
-  useEffect(() => {
-    loadNotes();
-  }, []);
+  // Get progress data from Redux store
+  const dailyProgress = useSelector((state: RootState) => state.progress.dailyProgress);
+  const currentDay = useSelector((state: RootState) => state.progress.currentDay);
 
-  const loadNotes = async () => {
+  const journeyEntries: JourneyEntry[] = [
+    {
+      id: '1',
+      date: '5 Mar 2025',
+      title: 'Day 1',
+      mood: 'Happy',
+      moodEmoji: '😊',
+      text: "Today, I'm grateful for the little things that make me meaningful - fresh air in the morning, a warm cup of coffee, and the support of loved ones.",
+      hasVlog: true,
+      hasPhoto: true,
+    },
+    {
+      id: '2',
+      date: '8 Mar 2025',
+      title: 'Day 2',
+      mood: 'Motivated',
+      moodEmoji: '💪',
+      text: '',
+      hasVlog: false,
+      hasPhoto: false,
+    },
+    {
+      id: '3',
+      date: '9 Mar 2025',
+      title: 'Day 3',
+      mood: 'Focused',
+      moodEmoji: '🎯',
+      text: 'Another productive day. The routine is starting to feel natural.',
+      hasVlog: false,
+      hasPhoto: true,
+    },
+  ];
+
+  const currentEntry = journeyEntries.find(entry => entry.id === selectedEntry);
+
+  const moodOptions = [
+    { emoji: '😊', label: 'Happy', value: 8 },
+    { emoji: '😌', label: 'Calm', value: 7 },
+    { emoji: '💪', label: 'Motivated', value: 9 },
+    { emoji: '🎯', label: 'Focused', value: 8 },
+    { emoji: '😴', label: 'Tired', value: 4 },
+    { emoji: '😤', label: 'Frustrated', value: 3 },
+    { emoji: '🤔', label: 'Thoughtful', value: 6 },
+    { emoji: '😎', label: 'Confident', value: 9 },
+  ];
+
+  const handleMoodSelection = async (mood: string, value: number) => {
+    setSelectedMood(mood);
+    
     try {
       const today = new Date().toISOString().split('T')[0];
-      const storedNotes = await AsyncStorage.getItem(`notes_${today}`);
-      if (storedNotes) {
-        setNotes(JSON.parse(storedNotes));
-      }
+      await dispatch(updateMoodLevels({ 
+        date: today, 
+        motivationLevel: value 
+      })).unwrap();
+      
+      Alert.alert('Mood Saved', `Your mood "${mood}" has been recorded for today!`);
     } catch (error) {
-      console.error('Failed to load notes:', error);
+      console.error('Failed to save mood:', error);
+      Alert.alert('Error', 'Failed to save your mood. Please try again.');
     }
   };
 
-  const saveNotes = async (updatedNotes: Note[]) => {
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      await AsyncStorage.setItem(`notes_${today}`, JSON.stringify(updatedNotes));
-    } catch (error) {
-      console.error('Failed to save notes:', error);
-    }
-  };
-
-  const addNote = () => {
-    if (newNoteText.trim().length === 0) {
-      Alert.alert('Empty Note', 'Please enter some text for your note.');
+  const handleSaveJournalEntry = async () => {
+    if (!newText.trim()) {
+      Alert.alert('Empty Entry', 'Please write something in your journal entry.');
       return;
     }
 
-    const newNote: Note = {
-      id: Date.now().toString(),
-      text: newNoteText.trim(),
-      isCompleted: false,
-      createdAt: new Date().toISOString(),
-      priority: selectedPriority,
-    };
-
-    const updatedNotes = [newNote, ...notes];
-    setNotes(updatedNotes);
-    saveNotes(updatedNotes);
-    setNewNoteText('');
-    setSelectedPriority('medium');
-  };
-
-  const toggleNote = (noteId: string) => {
-    const updatedNotes = notes.map(note => {
-      if (note.id === noteId) {
-        return {
-          ...note,
-          isCompleted: !note.isCompleted,
-          completedAt: !note.isCompleted ? new Date().toISOString() : undefined,
-        };
-      }
-      return note;
-    });
-    setNotes(updatedNotes);
-    saveNotes(updatedNotes);
-  };
-
-  const deleteNote = (noteId: string) => {
-    Alert.alert(
-      'Delete Note',
-      'Are you sure you want to delete this note?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            const updatedNotes = notes.filter(note => note.id !== noteId);
-            setNotes(updatedNotes);
-            saveNotes(updatedNotes);
-          },
-        },
-      ]
-    );
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high': return theme.colors.error;
-      case 'medium': return theme.colors.warning;
-      case 'low': return theme.colors.success;
-      default: return theme.colors.textSecondary;
+    try {
+      // Here you would typically save the journal entry to your storage
+      // For now, we'll just show a success message
+      Alert.alert('Entry Saved', 'Your journal entry has been saved successfully!');
+      setNewText('');
+      setSelectedEntry(null);
+    } catch (error) {
+      console.error('Failed to save journal entry:', error);
+      Alert.alert('Error', 'Failed to save your journal entry. Please try again.');
     }
   };
 
-  const getPriorityIcon = (priority: string) => {
-    switch (priority) {
-      case 'high': return 'flag';
-      case 'medium': return 'flag-outline';
-      case 'low': return 'remove';
-      default: return 'remove';
-    }
-  };
-
-  const filteredNotes = notes.filter(note => {
-    switch (filter) {
-      case 'active': return !note.isCompleted;
-      case 'completed': return note.isCompleted;
-      default: return true;
-    }
-  });
-
-  const renderAddNoteSection = () => (
-    <View style={[styles.addNoteSection, { backgroundColor: theme.colors.surface }]}>
-      <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-        Add New Note
+  const renderMoodSelector = () => (
+    <View style={styles.moodSection}>
+      <Text style={[styles.moodTitle, { color: theme.colors.text }]}>
+        How are you feeling today?
       </Text>
-      
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={[styles.textInput, { 
-            color: theme.colors.text,
-            backgroundColor: theme.colors.background,
-            borderColor: theme.colors.border
-          }]}
-          placeholder="What do you want to accomplish today?"
-          placeholderTextColor={theme.colors.textSecondary}
-          value={newNoteText}
-          onChangeText={setNewNoteText}
-          multiline
-          numberOfLines={3}
-        />
-      </View>
-
-      <View style={styles.priorityContainer}>
-        <Text style={[styles.priorityLabel, { color: theme.colors.textSecondary }]}>
-          Priority:
-        </Text>
-        {(['low', 'medium', 'high'] as const).map((priority) => (
+      <View style={styles.moodOptions}>
+        {moodOptions.map((mood, index) => (
           <TouchableOpacity
-            key={priority}
+            key={index}
             style={[
-              styles.priorityButton,
-              {
-                backgroundColor: selectedPriority === priority 
-                  ? getPriorityColor(priority) 
-                  : theme.colors.background,
-                borderColor: getPriorityColor(priority),
-              }
+              styles.moodOption,
+              selectedMood === mood.label && styles.moodOptionSelected,
             ]}
-            onPress={() => setSelectedPriority(priority)}
+            onPress={() => handleMoodSelection(mood.label, mood.value)}
           >
-            <Ionicons
-              name={getPriorityIcon(priority)}
-              size={16}
-              color={selectedPriority === priority ? theme.colors.background : getPriorityColor(priority)}
-            />
+            <Text style={styles.moodEmoji}>{mood.emoji}</Text>
             <Text style={[
-              styles.priorityText,
-              { 
-                color: selectedPriority === priority 
-                  ? theme.colors.background 
-                  : getPriorityColor(priority) 
-              }
+              styles.moodLabel,
+              { color: selectedMood === mood.label ? 'white' : theme.colors.text }
             ]}>
-              {priority.charAt(0).toUpperCase() + priority.slice(1)}
+              {mood.label}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
+    </View>
+  );
 
-      <TouchableOpacity
-        style={[styles.addButton, { backgroundColor: theme.colors.primary }]}
-        onPress={addNote}
-      >
-        <Ionicons name="add" size={24} color={theme.colors.background} />
-        <Text style={[styles.addButtonText, { color: theme.colors.background }]}>
-          Add Note
+  const renderTaskIcons = () => (
+    <View style={styles.taskIconsSection}>
+      <Text style={[styles.taskIconsTitle, { color: theme.colors.text }]}>
+        Tasks
+      </Text>
+      <View style={styles.taskIcons}>
+        {['🏃', '🏋️', '📚', '💧', '🛏️'].map((icon, index) => (
+          <View key={index} style={styles.taskIcon}>
+            <Text style={styles.taskIconText}>{icon}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+
+  const renderTextInput = () => (
+    <View style={styles.textInputSection}>
+      <Text style={[styles.textInputTitle, { color: theme.colors.text }]}>
+        Create a text
+      </Text>
+      <Text style={[styles.textInputSubtitle, { color: theme.colors.textSecondary }]}>
+        Use details to describe what you're feeling grateful for.
+      </Text>
+      <View style={styles.textInputContainer}>
+        <TextInput
+          style={[styles.textInput, { 
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.border,
+            color: theme.colors.text
+          }]}
+          placeholder="Write your thoughts here..."
+          placeholderTextColor={theme.colors.textSecondary}
+          value={newText}
+          onChangeText={setNewText}
+          multiline
+          numberOfLines={4}
+        />
+        <TouchableOpacity 
+          style={styles.submitButton}
+          onPress={handleSaveJournalEntry}
+        >
+          <Ionicons name="arrow-forward" size={20} color="white" />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const renderJourneyEntry = (entry: JourneyEntry) => (
+    <TouchableOpacity
+      key={entry.id}
+      style={[
+        styles.journeyEntry,
+        {
+          backgroundColor: theme.colors.surface,
+          borderColor: theme.colors.border,
+        },
+      ]}
+      onPress={() => setSelectedEntry(entry.id)}
+    >
+      <View style={styles.entryHeader}>
+        <Text style={[styles.entryDate, { color: theme.colors.textSecondary }]}>
+          {entry.date}
         </Text>
-      </TouchableOpacity>
-    </View>
-  );
-
-  const renderFilterButtons = () => (
-    <View style={styles.filterContainer}>
-      {(['all', 'active', 'completed'] as const).map((filterOption) => (
-        <TouchableOpacity
-          key={filterOption}
-          style={[
-            styles.filterButton,
-            {
-              backgroundColor: filter === filterOption 
-                ? theme.colors.primary 
-                : theme.colors.surface,
-              borderColor: theme.colors.border,
-            }
-          ]}
-          onPress={() => setFilter(filterOption)}
-        >
-          <Text style={[
-            styles.filterButtonText,
-            { 
-              color: filter === filterOption 
-                ? theme.colors.background 
-                : theme.colors.text 
-            }
-          ]}>
-            {filterOption.charAt(0).toUpperCase() + filterOption.slice(1)}
+        <View style={styles.entryTitle}>
+          <Text style={[styles.entryTitleText, { color: theme.colors.text }]}>
+            {entry.title}
           </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
+          <View style={styles.riseLogo}>
+            <Ionicons name="sunny" size={16} color="#F59E0B" />
+          </View>
+        </View>
+      </View>
 
-  const renderNote = (note: Note) => (
-    <View key={note.id} style={[
-      styles.noteItem,
-      { 
-        backgroundColor: theme.colors.surface,
-        borderLeftColor: getPriorityColor(note.priority),
-        opacity: note.isCompleted ? 0.6 : 1
-      }
-    ]}>
-      <View style={styles.noteHeader}>
-        <TouchableOpacity
-          style={styles.checkbox}
-          onPress={() => toggleNote(note.id)}
-        >
-          <Ionicons
-            name={note.isCompleted ? 'checkmark-circle' : 'ellipse-outline'}
-            size={24}
-            color={note.isCompleted ? theme.colors.success : theme.colors.textSecondary}
-          />
-        </TouchableOpacity>
-        
-        <View style={styles.noteContent}>
-          <Text style={[
-            styles.noteText,
-            { 
-              color: theme.colors.text,
-              textDecorationLine: note.isCompleted ? 'line-through' : 'none'
-            }
-          ]}>
-            {note.text}
+      <View style={styles.moodSection}>
+        <Text style={[styles.moodLabel, { color: theme.colors.textSecondary }]}>
+          Today's Mood: {entry.mood} {entry.moodEmoji}
+        </Text>
+      </View>
+
+      {entry.hasVlog && (
+        <View style={styles.vlogCompletion}>
+          <Text style={styles.vlogText}>
+            Well done, Desmond! You've completed today's vlog.
           </Text>
-          
-          <View style={styles.noteMeta}>
-            <View style={styles.priorityBadge}>
-              <Ionicons
-                name={getPriorityIcon(note.priority)}
-                size={12}
-                color={getPriorityColor(note.priority)}
-              />
-              <Text style={[
-                styles.priorityBadgeText,
-                { color: getPriorityColor(note.priority) }
-              ]}>
-                {note.priority}
+          <View style={styles.vlogThumbnail}>
+            <Ionicons name="videocam" size={24} color="#F59E0B" />
+          </View>
+        </View>
+      )}
+
+      <View style={styles.mediaSection}>
+        <Text style={[styles.mediaTitle, { color: theme.colors.text }]}>
+          Your media
+        </Text>
+        <View style={styles.mediaItems}>
+          {entry.hasPhoto && (
+            <View style={styles.mediaItem}>
+              <Ionicons name="image" size={20} color="#F59E0B" />
+              <Text style={[styles.mediaText, { color: theme.colors.textSecondary }]}>
+                Photo
               </Text>
             </View>
-            
-            <Text style={[styles.noteTime, { color: theme.colors.textSecondary }]}>
-              {new Date(note.createdAt).toLocaleTimeString('en-US', { 
-                hour: '2-digit', 
-                minute: '2-digit' 
-              })}
-            </Text>
-          </View>
+          )}
+          {entry.hasVlog && (
+            <View style={styles.mediaItem}>
+              <Ionicons name="videocam" size={20} color="#F59E0B" />
+              <Text style={[styles.mediaText, { color: theme.colors.textSecondary }]}>
+                Vlog
+              </Text>
+            </View>
+          )}
         </View>
-        
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => deleteNote(note.id)}
-        >
-          <Ionicons name="trash-outline" size={20} color={theme.colors.error} />
-        </TouchableOpacity>
       </View>
-    </View>
+
+      {entry.text && (
+        <View style={styles.textSection}>
+          <Text style={[styles.textSectionTitle, { color: theme.colors.text }]}>
+            Your text journey
+          </Text>
+          <Text style={[styles.textContent, { color: theme.colors.textSecondary }]}>
+            {entry.text}
+          </Text>
+        </View>
+      )}
+    </TouchableOpacity>
   );
-
-  const renderStats = () => {
-    const totalNotes = notes.length;
-    const completedNotes = notes.filter(note => note.isCompleted).length;
-    const activeNotes = totalNotes - completedNotes;
-    const completionRate = totalNotes > 0 ? Math.round((completedNotes / totalNotes) * 100) : 0;
-
-    return (
-      <View style={[styles.statsContainer, { backgroundColor: theme.colors.surface }]}>
-        <Text style={[styles.statsTitle, { color: theme.colors.text }]}>
-          Today's Progress
-        </Text>
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={[styles.statNumber, { color: theme.colors.primary }]}>
-              {totalNotes}
-            </Text>
-            <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>
-              Total
-            </Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statNumber, { color: theme.colors.success }]}>
-              {completedNotes}
-            </Text>
-            <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>
-              Completed
-            </Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statNumber, { color: theme.colors.warning }]}>
-              {activeNotes}
-            </Text>
-            <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>
-              Active
-            </Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statNumber, { color: theme.colors.secondary }]}>
-              {completionRate}%
-            </Text>
-            <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>
-              Done
-            </Text>
-          </View>
-        </View>
-      </View>
-    );
-  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
+      {/* Header */}
+      <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
-          Daily Notes
+          Journey
         </Text>
-        <View style={styles.headerSpacer} />
+        <View style={styles.headerRight} />
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {renderAddNoteSection()}
-        {renderStats()}
-        {renderFilterButtons()}
-        
-        <View style={styles.notesContainer}>
-          {filteredNotes.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="document-text-outline" size={48} color={theme.colors.textSecondary} />
-              <Text style={[styles.emptyStateText, { color: theme.colors.textSecondary }]}>
-                {filter === 'all' 
-                  ? 'No notes yet. Add your first note above!' 
-                  : `No ${filter} notes.`
-                }
-              </Text>
-            </View>
-          ) : (
-            filteredNotes.map(renderNote)
-          )}
-        </View>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Journey Entries */}
+        {journeyEntries.map(renderJourneyEntry)}
+
+        {/* New Entry Section */}
+        {selectedEntry && (
+          <View style={styles.newEntrySection}>
+            <Text style={[styles.newEntryTitle, { color: theme.colors.text }]}>
+              Add to your journey
+            </Text>
+            
+            {renderMoodSelector()}
+            {renderTaskIcons()}
+            {renderTextInput()}
+          </View>
+        )}
       </ScrollView>
+
+      {/* Bottom Navigation */}
+      <View
+        style={[
+          styles.bottomNav,
+          {
+            backgroundColor: theme.colors.surface,
+            borderTopColor: theme.colors.border,
+          },
+        ]}
+      >
+        <TouchableOpacity style={styles.navItem}>
+          <Ionicons name="stats-chart" size={24} color={theme.colors.textSecondary} />
+          <Text style={[styles.navText, { color: theme.colors.textSecondary }]}>Stats</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem}>
+          <View style={styles.riseLogo}>
+            <Ionicons name="sunny" size={24} color="#F59E0B" />
+          </View>
+          <Text style={[styles.navText, { color: theme.colors.textSecondary }]}>Rise</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem}>
+          <Ionicons name="trophy" size={24} color={theme.colors.textSecondary} />
+          <Text style={[styles.navText, { color: theme.colors.textSecondary }]}>Trophy</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem}>
+          <Ionicons name="grid" size={24} color={theme.colors.primary} />
+          <Text style={[styles.navText, { color: theme.colors.primary }]}>More</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -393,183 +352,240 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#3D2A2A',
-  },
-  backButton: {
-    padding: 5,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  headerSpacer: {
-    width: 34,
-  },
-  content: {
-    flex: 1,
-  },
-  addNoteSection: {
-    padding: 20,
-    margin: 20,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#3D2A2A',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  inputContainer: {
-    marginBottom: 15,
-  },
-  textInput: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 15,
-    fontSize: 16,
-    textAlignVertical: 'top',
-  },
-  priorityContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  priorityLabel: {
-    fontSize: 16,
-    marginRight: 15,
-  },
-  priorityButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 10,
-    borderWidth: 2,
-  },
-  priorityText: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginLeft: 5,
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 15,
-    borderRadius: 12,
-  },
-  addButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
-  statsContainer: {
-    margin: 20,
-    padding: 20,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#3D2A2A',
-  },
-  statsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  statLabel: {
-    fontSize: 12,
-    marginTop: 5,
-  },
-  filterContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginHorizontal: 20,
-    marginBottom: 20,
-  },
-  filterButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginHorizontal: 5,
-    borderWidth: 1,
-  },
-  filterButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  notesContainer: {
-    paddingHorizontal: 20,
+    paddingTop: 60,
     paddingBottom: 20,
   },
-  noteItem: {
-    marginBottom: 15,
-    padding: 15,
-    borderRadius: 12,
-    borderLeftWidth: 4,
+  backButton: {
+    padding: 8,
   },
-  noteHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  checkbox: {
-    marginRight: 12,
-    marginTop: 2,
-  },
-  noteContent: {
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
     flex: 1,
+    textAlign: 'center',
   },
-  noteText: {
-    fontSize: 16,
-    lineHeight: 22,
+  headerRight: {
+    width: 40,
+  },
+  content: {
+    paddingHorizontal: 20,
+    paddingBottom: 100,
+  },
+  journeyEntry: {
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 20,
+  },
+  entryHeader: {
+    marginBottom: 16,
+  },
+  entryDate: {
+    fontSize: 14,
     marginBottom: 8,
   },
-  noteMeta: {
+  entryTitle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  entryTitleText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginRight: 8,
+  },
+  riseLogo: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#1F2937',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  moodSection: {
+    marginBottom: 16,
+  },
+  moodLabel: {
+    fontSize: 16,
+  },
+  vlogCompletion: {
+    backgroundColor: '#F59E0B',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  priorityBadge: {
+  vlogText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    flex: 1,
+  },
+  vlogThumbnail: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mediaSection: {
+    marginBottom: 16,
+  },
+  mediaTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  mediaItems: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  mediaItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
-  priorityBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginLeft: 4,
-    textTransform: 'uppercase',
+  mediaText: {
+    fontSize: 14,
   },
-  noteTime: {
-    fontSize: 12,
+  textSection: {
+    marginBottom: 16,
   },
-  deleteButton: {
-    padding: 5,
-    marginLeft: 10,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyStateText: {
+  textSectionTitle: {
     fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  textContent: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  newEntrySection: {
+    marginTop: 20,
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#3D2A2A',
+    backgroundColor: '#2D1B1B',
+  },
+  newEntryTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 20,
     textAlign: 'center',
-    marginTop: 15,
-    fontStyle: 'italic',
+  },
+  moodTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  moodOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  moodOption: {
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: '#3D2A2A',
+    minWidth: 80,
+  },
+  moodOptionSelected: {
+    backgroundColor: '#F59E0B',
+  },
+  moodEmoji: {
+    fontSize: 24,
+    marginBottom: 4,
+  },
+  moodLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  taskIconsSection: {
+    marginBottom: 20,
+  },
+  taskIconsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  taskIcons: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  taskIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#3D2A2A',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  taskIconText: {
+    fontSize: 20,
+  },
+  textInputSection: {
+    marginBottom: 20,
+  },
+  textInputTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  textInputSubtitle: {
+    fontSize: 14,
+    marginBottom: 16,
+  },
+  textInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 12,
+  },
+  textInput: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    fontSize: 16,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  submitButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#F59E0B',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bottomNav: {
+    flexDirection: 'row',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  navItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  navText: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  riseLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#1F2937',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

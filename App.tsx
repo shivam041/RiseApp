@@ -297,7 +297,7 @@ const AppContent: React.FC = () => {
 
   // Show questionnaire if user hasn't completed onboarding
   if (!user || !user.isOnboardingComplete) {
-    return <Onboarding onComplete={handleQuestionnaireComplete} />;
+    return <Onboarding onComplete={handleQuestionnaireComplete} onGoHome={handleLogout} />;
   }
 
   // User is authenticated and has completed onboarding - show main app
