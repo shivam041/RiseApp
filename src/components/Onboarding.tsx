@@ -48,6 +48,10 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onGoHome }) => {
   const [showNumberPicker, setShowNumberPicker] = useState(false);
   const [currentPickerType, setCurrentPickerType] = useState<string>('');
   const [tempTime, setTempTime] = useState<Date | null>(null);
+  // Web fallback time state
+  const [webHour, setWebHour] = useState<number>(7);
+  const [webMinute, setWebMinute] = useState<number>(0);
+  const [webPeriod, setWebPeriod] = useState<'AM' | 'PM'>('AM');
 
   const getDateFromTimeString = (timeString?: string): Date => {
     const now = new Date();
@@ -385,6 +389,11 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onGoHome }) => {
   const handleBack = () => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
+    } else {
+      // If we're on the first step, go back to login page
+      if (onGoHome) {
+        onGoHome();
+      }
     }
   };
 
@@ -421,7 +430,15 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onGoHome }) => {
         onPress={() => {
           setCurrentPickerType(goalType || 'time');
           const existing = goalType ? (userData[goalType as keyof OnboardingData] as unknown as string) : undefined;
-          setTempTime(getDateFromTimeString(existing));
+          const d = getDateFromTimeString(existing);
+          setTempTime(d);
+          // Initialize web fallback values
+          const rawHours = d.getHours();
+          const period: 'AM' | 'PM' = rawHours >= 12 ? 'PM' : 'AM';
+          const h12 = rawHours % 12 === 0 ? 12 : rawHours % 12;
+          setWebHour(h12);
+          setWebMinute(d.getMinutes());
+          setWebPeriod(period);
           setShowTimePicker(true);
         }}
       >
@@ -704,9 +721,16 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onGoHome }) => {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-        </TouchableOpacity>
+        <View style={styles.backButtonContainer}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+          {currentStep === 0 && (
+            <Text style={[styles.backButtonHint, { color: theme.colors.textSecondary }]}>
+              Back to Login
+            </Text>
+          )}
+        </View>
         {renderProgressBar()}
         <View style={styles.headerRight}>
           {onGoHome && (
@@ -765,13 +789,91 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onGoHome }) => {
               </TouchableOpacity>
             </View>
           )}
-          <DateTimePicker
-            value={tempTime || new Date()}
-            mode="time"
-            is24Hour={false}
-            display="spinner"
-            onChange={handleTimeChange}
-          />
+          {Platform.OS === 'web' ? (
+            <View style={styles.webTimeContainer}>
+              <Text style={[styles.webTimeTitle, { color: theme.colors.text }]}>Select Time</Text>
+              <View style={styles.webTimeRow}>
+                <View style={styles.webColumn}>
+                  <Text style={[styles.webColumnTitle, { color: theme.colors.textSecondary }]}>Hour</Text>
+                  <View style={styles.webGrid}>
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => {
+                      const selected = webHour === h;
+                      return (
+                        <TouchableOpacity
+                          key={`h-${h}`}
+                          style={[styles.webCell, { backgroundColor: selected ? theme.colors.primary : theme.colors.surface, borderColor: selected ? theme.colors.primary : '#3D2A2A' }]}
+                          onPress={() => setWebHour(h)}
+                        >
+                          <Text style={[styles.webCellText, { color: selected ? '#fff' : theme.colors.text }]}>{h}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+                <View style={styles.webColumn}>
+                  <Text style={[styles.webColumnTitle, { color: theme.colors.textSecondary }]}>Minute</Text>
+                  <View style={styles.webGrid}>
+                    {Array.from({ length: 12 }, (_, i) => i * 5).map((m) => {
+                      const selected = Math.floor(webMinute / 5) * 5 === m;
+                      return (
+                        <TouchableOpacity
+                          key={`m-${m}`}
+                          style={[styles.webCell, { backgroundColor: selected ? theme.colors.primary : theme.colors.surface, borderColor: selected ? theme.colors.primary : '#3D2A2A' }]}
+                          onPress={() => setWebMinute(m)}
+                        >
+                          <Text style={[styles.webCellText, { color: selected ? '#fff' : theme.colors.text }]}>{String(m).padStart(2, '0')}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+                <View style={styles.webColumn}>
+                  <Text style={[styles.webColumnTitle, { color: theme.colors.textSecondary }]}>Period</Text>
+                  <View style={styles.webGridSmall}>
+                    {(['AM', 'PM'] as const).map((p) => {
+                      const selected = webPeriod === p;
+                      return (
+                        <TouchableOpacity
+                          key={`p-${p}`}
+                          style={[styles.webCellWide, { backgroundColor: selected ? theme.colors.primary : theme.colors.surface, borderColor: selected ? theme.colors.primary : '#3D2A2A' }]}
+                          onPress={() => setWebPeriod(p)}
+                        >
+                          <Text style={[styles.webCellText, { color: selected ? '#fff' : theme.colors.text }]}>{p}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              </View>
+              <View style={styles.webActions}>
+                <TouchableOpacity onPress={() => { setShowTimePicker(false); }} style={[styles.webActionBtn, { borderColor: theme.colors.border }]}> 
+                  <Text style={[styles.webActionText, { color: theme.colors.error }]}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    const hh = String(webHour).padStart(2, '0');
+                    const mm = String(Math.floor(webMinute / 5) * 5).padStart(2, '0');
+                    const timeString = `${hh}:${mm} ${webPeriod}`;
+                    if (currentPickerType) {
+                      handleInputChange(currentPickerType, timeString);
+                    }
+                    setShowTimePicker(false);
+                  }}
+                  style={[styles.webActionBtn, { borderColor: theme.colors.border, backgroundColor: theme.colors.primary }]}
+                >
+                  <Text style={[styles.webActionText, { color: '#fff' }]}>Done</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <DateTimePicker
+              value={tempTime || new Date()}
+              mode="time"
+              is24Hour={false}
+              display="spinner"
+              onChange={handleTimeChange}
+            />
+          )}
         </View>
       )}
     </View>
@@ -797,6 +899,85 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  webTimeContainer: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#3D2A2A',
+  },
+  webTimeTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  webTimeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  webColumn: {
+    flex: 1,
+    marginHorizontal: 6,
+  },
+  webColumnTitle: {
+    fontSize: 12,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  webGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  webGridSmall: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  webCell: {
+    width: 44,
+    height: 36,
+    margin: 4,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#3D2A2A',
+  },
+  webCellWide: {
+    minWidth: 60,
+    height: 36,
+    marginHorizontal: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: '#3D2A2A',
+  },
+  webCellText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  webActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
+  webActionBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginHorizontal: 6,
+    alignItems: 'center',
+  },
+  webActionText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -805,8 +986,16 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 20,
   },
+  backButtonContainer: {
+    alignItems: 'center',
+  },
   backButton: {
     padding: 8,
+  },
+  backButtonHint: {
+    fontSize: 10,
+    marginTop: 2,
+    textAlign: 'center',
   },
   progressContainer: {
     flex: 1,
