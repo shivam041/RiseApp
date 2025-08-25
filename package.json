@@ -16,23 +16,24 @@
     "configure": "eas build:configure"
   },
   "dependencies": {
+    "@expo/metro-runtime": "~5.0.4",
     "@expo/vector-icons": "^14.1.0",
     "@react-native-async-storage/async-storage": "2.1.2",
     "@react-native-community/datetimepicker": "8.4.1",
     "@reduxjs/toolkit": "^2.8.2",
+    "@supabase/supabase-js": "^2.56.0",
     "expo": "~53.0.20",
     "expo-dev-client": "~5.2.4",
     "expo-device": "^7.1.4",
     "expo-notifications": "^0.31.4",
     "expo-status-bar": "~2.2.3",
+    "expo-updates": "~0.28.17",
     "react": "19.0.0",
+    "react-dom": "19.0.0",
     "react-native": "0.79.5",
     "react-native-safe-area-context": "5.4.0",
-    "react-redux": "^9.2.0",
-    "expo-updates": "~0.28.17",
-    "react-dom": "19.0.0",
     "react-native-web": "^0.20.0",
-    "@expo/metro-runtime": "~5.0.4"
+    "react-redux": "^9.2.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

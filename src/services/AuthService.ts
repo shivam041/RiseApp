@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import AuthBackend from './AuthBackend';
 
 export interface User {
   id: string;
@@ -75,6 +76,14 @@ export class AuthService {
    */
   async login(email: string, password: string): Promise<User> {
     try {
+      // Prefer backend when configured
+      if (AuthBackend.isEnabled()) {
+        const user = await AuthBackend.signIn(email, password);
+        await this.storeUser(user);
+        await this.storeToken(this.generateToken(user));
+        await this.storeCredentials({ email, password });
+        return user;
+      }
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -126,6 +135,13 @@ export class AuthService {
    */
   async register(email: string, password: string): Promise<User> {
     try {
+      if (AuthBackend.isEnabled()) {
+        const user = await AuthBackend.signUp(email, password);
+        await this.storeUser(user);
+        await this.storeToken(this.generateToken(user));
+        await this.storeCredentials({ email, password });
+        return user;
+      }
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -182,6 +198,9 @@ export class AuthService {
    */
   async logout(): Promise<void> {
     try {
+      if (AuthBackend.isEnabled()) {
+        await AuthBackend.signOut();
+      }
       // Clear stored data
       await this.clearUserData();
     } catch (error) {
@@ -195,6 +214,13 @@ export class AuthService {
    */
   async isAuthenticated(): Promise<boolean> {
     try {
+      if (AuthBackend.isEnabled()) {
+        const backendUser = await AuthBackend.getSessionUser();
+        if (backendUser) {
+          await this.storeUser(backendUser);
+          return true;
+        }
+      }
       const user = await this.getCurrentUser();
       console.log('AuthService.isAuthenticated - user:', user);
       // Check if we have a stored user with authentication status
@@ -471,6 +497,9 @@ export class AuthService {
           isOnboardingComplete: isComplete,
         };
         await this.storeUser(updatedUser);
+        if (AuthBackend.isEnabled()) {
+          await AuthBackend.updateOnboardingComplete(updatedUser.id, isComplete);
+        }
       }
     } catch (error) {
       console.error('Update onboarding status error:', error);
