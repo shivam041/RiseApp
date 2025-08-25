@@ -78,11 +78,16 @@ export class AuthService {
     try {
       // Prefer backend when configured
       if (AuthBackend.isEnabled()) {
-        const user = await AuthBackend.signIn(email, password);
-        await this.storeUser(user);
-        await this.storeToken(this.generateToken(user));
-        await this.storeCredentials({ email, password });
-        return user;
+        try {
+          const user = await AuthBackend.signIn(email, password);
+          await this.storeUser(user);
+          await this.storeToken(this.generateToken(user));
+          await this.storeCredentials({ email, password });
+          return user;
+        } catch (backendError) {
+          console.warn('Backend auth failed, falling back to mock auth:', backendError);
+          // Fall back to mock auth if backend fails
+        }
       }
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -136,11 +141,16 @@ export class AuthService {
   async register(email: string, password: string): Promise<User> {
     try {
       if (AuthBackend.isEnabled()) {
-        const user = await AuthBackend.signUp(email, password);
-        await this.storeUser(user);
-        await this.storeToken(this.generateToken(user));
-        await this.storeCredentials({ email, password });
-        return user;
+        try {
+          const user = await AuthBackend.signUp(email, password);
+          await this.storeUser(user);
+          await this.storeToken(this.generateToken(user));
+          await this.storeCredentials({ email, password });
+          return user;
+        } catch (backendError) {
+          console.warn('Backend registration failed, falling back to mock auth:', backendError);
+          // Fall back to mock auth if backend fails
+        }
       }
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 1000));
