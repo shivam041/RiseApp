@@ -1,40 +1,89 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Alert, Platform } from 'react-native';
 import { Provider } from 'react-redux';
 import { store } from './src/store';
-import { useSelector } from 'react-redux';
+import { ThemeProvider } from './src/context/ThemeContext';
+import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from './src/store';
-import { loadUser, saveUser, clearUser } from './src/store/slices/userSlice';
-import { loadDailyProgress } from './src/store/slices/progressSlice';
-import { saveQuestionnaire, loadQuestionnaire } from './src/store/slices/questionnaireSlice';
-import { loadGoals } from './src/store/slices/goalsSlice';
-import { loadNotes } from './src/store/slices/notesSlice';
-import { loadCalendarTasks } from './src/store/slices/calendarSlice';
-import { loadDayProgression } from './src/store/slices/dayProgressionSlice';
-import Onboarding from './src/components/Onboarding';
-import Dashboard from './src/components/Dashboard';
-import NotificationSettings from './src/components/NotificationSettings';
-import Stats from './src/components/Stats';
-import Profile from './src/components/Profile';
+import { saveUser, loadUser, clearUser } from './src/store/slices/userSlice';
+import { loadDailyProgress, clearProgress } from './src/store/slices/progressSlice';
+import { loadQuestionnaire, clearQuestionnaire } from './src/store/slices/questionnaireSlice';
+import { loadGoals, clearGoals } from './src/store/slices/goalsSlice';
+import { loadNotes, clearNotes } from './src/store/slices/notesSlice';
+import { loadCalendarTasks, clearCalendarTasks } from './src/store/slices/calendarSlice';
+import { loadDayProgression, clearDayProgression } from './src/store/slices/dayProgressionSlice';
+import { AuthService } from './src/services/AuthService';
+import { OneSignalService } from './src/services/OneSignalService';
+import { MotivationalQuotesService } from './src/services/MotivationalQuotesService';
+
+// Import components
 import Login from './src/components/Login';
 import Register from './src/components/Register';
-import AdminPanel from './src/components/AdminPanel';
-import BackendAdminPanel from './src/components/BackendAdminPanel';
+import Dashboard from './src/components/Dashboard';
+import Profile from './src/components/Profile';
 import Calendar from './src/components/Calendar';
 import Notes from './src/components/Notes';
-import { ThemeProvider, useTheme } from './src/context/ThemeContext';
-import NotificationService from './src/services/NotificationService';
-import AuthService from './src/services/AuthService';
+import Onboarding from './src/components/Onboarding';
+import NotificationSettings from './src/components/NotificationSettings';
+import Stats from './src/components/Stats';
+import AdminPanel from './src/components/AdminPanel';
+import BackendAdminPanel from './src/components/BackendAdminPanel';
 
-type Screen = 'dashboard' | 'notificationSettings' | 'stats' | 'profile' | 'adminPanel' | 'backendAdmin' | 'calendar' | 'notes';
+// Import types
+import { User } from './src/services/AuthService';
+
+// Service worker registration for web
+const registerServiceWorker = async () => {
+  if (Platform.OS === 'web' && 'serviceWorker' in navigator) {
+    try {
+      const registration = await navigator.serviceWorker.register('/sw.js');
+      console.log('Service Worker registered successfully:', registration);
+      
+      // Check for updates
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        if (newWorker) {
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              // New version available
+              console.log('New version available');
+              if (confirm('A new version is available! Reload to update?')) {
+                window.location.reload();
+              }
+            }
+          });
+        }
+      });
+      
+      return registration;
+    } catch (error) {
+      console.error('Service Worker registration failed:', error);
+    }
+  }
+};
+
+// Initialize OneSignal and motivational quotes
+const initializeServices = async () => {
+  try {
+    // Initialize OneSignal
+    const oneSignalService = OneSignalService.getInstance();
+    await oneSignalService.initialize();
+    
+    // Schedule daily reminders
+    await oneSignalService.scheduleDailyReminders();
+    
+    console.log('OneSignal and motivational quotes initialized successfully');
+  } catch (error) {
+    console.error('Failed to initialize services:', error);
+  }
+};
 
 const AppContent: React.FC = () => {
-  const dispatch = store.dispatch;
+  const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.user.user);
-  const [isLoading, setIsLoading] = useState(true);
-  const [currentScreen, setCurrentScreen] = useState<Screen>('dashboard');
+  const [currentScreen, setCurrentScreen] = useState<'dashboard' | 'profile' | 'calendar' | 'notes' | 'notificationSettings' | 'stats' | 'adminPanel' | 'backendAdmin'>('dashboard');
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const { theme } = useTheme();
+  const [isLoading, setIsLoading] = useState(true);
 
   // Derive authentication state from user state
   const isAuthenticated = user && user.isAuthenticated === true;
@@ -59,6 +108,14 @@ const AppContent: React.FC = () => {
     const initializeApp = async () => {
       try {
         console.log('App: Starting initialization...');
+        
+        // Register service worker for web
+        if (Platform.OS === 'web') {
+          await registerServiceWorker();
+        }
+        
+        // Initialize OneSignal and other services
+        await initializeServices();
         
         // Check if user is authenticated
         const authService = AuthService.getInstance();
@@ -112,6 +169,41 @@ const AppContent: React.FC = () => {
 
     initializeApp();
   }, [dispatch]);
+
+  useEffect(() => {
+    // Initialize OneSignal
+    const initOneSignal = async () => {
+      // Load OneSignal SDK
+      const script = document.createElement('script');
+      script.src = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js';
+      script.defer = true;
+      document.head.appendChild(script);
+
+      script.onload = () => {
+        // Initialize OneSignal after SDK loads
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        window.OneSignalDeferred.push(async function(OneSignal: any) {
+          await OneSignal.init({
+            appId: "6bad5469-9ea4-4946-99b6-8ed0c933549c",
+            allowLocalhostAsSecureOrigin: true,
+            notifyButton: {
+              enable: true,
+            },
+            welcomeNotification: {
+              title: 'Welcome to Rise! 🌅',
+              message: 'You\'ll now receive daily reminders and motivational quotes.',
+            },
+          });
+          
+          console.log('OneSignal initialized successfully');
+        });
+      };
+    };
+
+    if (Platform.OS === 'web') {
+      initOneSignal();
+    }
+  }, []);
 
   const handleQuestionnaireComplete = async (userData: any) => {
     try {
@@ -178,27 +270,12 @@ const AppContent: React.FC = () => {
       };
       
       console.log('App: Saving questionnaire data:', questionnaireData);
-      await dispatch(saveQuestionnaire(questionnaireData));
-      console.log('App: Questionnaire data saved');
+      await dispatch(loadQuestionnaire());
+      console.log('App: Questionnaire data loaded');
       
       // Set up smart notifications based on user goals
-      const notificationService = NotificationService.getInstance();
-      await notificationService.setupUserNotifications({
-        sleep: true,
-        water: true,
-        exercise: true,
-        mind: true,
-        screenTime: true,
-        shower: true,
-        wakeUpTime: userData.wakeUpTime,
-        bedTime: userData.bedTime,
-        sleepGoal: userData.sleepGoal,
-        hydrationGoal: userData.hydrationGoal,
-        exerciseGoal: userData.exerciseGoal,
-        mindGoal: userData.mindGoal,
-        screenTimeGoal: userData.screenTimeGoal,
-        showerGoal: userData.showerGoal,
-      }, []);
+      const oneSignalService = OneSignalService.getInstance();
+      await oneSignalService.scheduleDailyReminders();
       
       console.log('Onboarding completed and notifications set up successfully');
       
@@ -306,12 +383,12 @@ const AppContent: React.FC = () => {
       console.log('App: Clearing all user-specific data from Redux store');
       // Clear all user-specific data from Redux store
       await Promise.all([
-        dispatch({ type: 'goals/clearGoals' }),
-        dispatch({ type: 'notes/clearNotes' }),
-        dispatch({ type: 'calendar/clearCalendarTasks' }),
-        dispatch({ type: 'dayProgression/clearDayProgression' }),
-        dispatch({ type: 'progress/clearProgress' }),
-        dispatch({ type: 'questionnaire/clearQuestionnaire' }),
+        dispatch(clearGoals()),
+        dispatch(clearNotes()),
+        dispatch(clearCalendarTasks()),
+        dispatch(clearDayProgression()),
+        dispatch(clearProgress()),
+        dispatch(clearQuestionnaire()),
       ]);
       
       console.log('App: Setting authMode to login');

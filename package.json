@@ -28,11 +28,13 @@
     "expo-notifications": "^0.31.4",
     "expo-status-bar": "~2.2.3",
     "expo-updates": "~0.28.17",
+    "onesignal": "^0.1.2",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.5",
     "react-native-safe-area-context": "5.4.0",
     "react-native-web": "^0.20.0",
+    "react-onesignal": "^3.2.3",
     "react-redux": "^9.2.0"
   },
   "devDependencies": {

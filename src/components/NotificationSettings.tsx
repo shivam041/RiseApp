@@ -3,404 +3,431 @@ import {
   View,
   Text,
   StyleSheet,
-  Switch,
   TouchableOpacity,
+  Switch,
   ScrollView,
   Alert,
-  SafeAreaView,
+  Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import NotificationService from '../services/NotificationService';
+import { useTheme } from '../contexts/ThemeContext';
+import { OneSignalService } from '../services/OneSignalService';
+import { MotivationalQuotesService } from '../services/MotivationalQuotesService';
 
 interface NotificationSettingsProps {
   onBack: () => void;
 }
 
-interface NotificationSetting {
-  id: string;
-  title: string;
-  description: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  enabled: boolean;
-}
-
 const NotificationSettings: React.FC<NotificationSettingsProps> = ({ onBack }) => {
-  const [settings, setSettings] = useState<NotificationSetting[]>([
-    {
-      id: 'morning',
-      title: 'Morning Reminders',
-      description: 'Get notified when it\'s time to start your day',
-      icon: 'sunny',
-      enabled: true,
-    },
-    {
-      id: 'task',
-      title: 'Task Reminders',
-      description: 'Receive reminders for your daily tasks',
-      icon: 'checkmark-circle',
-      enabled: true,
-    },
-    {
-      id: 'water',
-      title: 'Hydration Reminders',
-      description: 'Get reminded to drink water throughout the day',
-      icon: 'water',
-      enabled: true,
-    },
-    {
-      id: 'evening',
-      title: 'Evening Reflection',
-      description: 'Reminder to reflect on your daily progress',
-      icon: 'moon',
-      enabled: true,
-    },
-    {
-      id: 'weekly',
-      title: 'Weekly Progress',
-      description: 'Weekly progress check and celebration',
-      icon: 'stats-chart',
-      enabled: true,
-    },
-    {
-      id: 'motivational',
-      title: 'Motivational Messages',
-      description: 'Receive encouraging messages throughout the day',
-      icon: 'heart',
-      enabled: true,
-    },
-  ]);
-
-  const [permissionGranted, setPermissionGranted] = useState(false);
+  const { theme, toggleTheme } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
+  const [preferences, setPreferences] = useState({
+    reminders: true,
+    motivation: true,
+    water: true,
+    exercise: true,
+    sleep: true,
+  });
+
+  const [oneSignalService] = useState(() => OneSignalService.getInstance());
+  const [quotesService] = useState(() => MotivationalQuotesService.getInstance());
 
   useEffect(() => {
-    checkNotificationPermissions();
+    loadPreferences();
   }, []);
 
-  const checkNotificationPermissions = async () => {
-    const notificationService = NotificationService.getInstance();
-    const hasPermission = await notificationService.requestPermissions();
-    setPermissionGranted(hasPermission);
-  };
-
-  const handleSettingToggle = async (settingId: string, value: boolean) => {
-    if (!permissionGranted) {
-      Alert.alert(
-        'Permission Required',
-        'Please enable notifications in your device settings to use this feature.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Settings', onPress: () => checkNotificationPermissions() },
-        ]
-      );
-      return;
-    }
-
-    setSettings(prev => 
-      prev.map(setting => 
-        setting.id === settingId 
-          ? { ...setting, enabled: value }
-          : setting
-      )
-    );
-
-    // Here you would typically save the setting to storage
-    // and update the notification schedule accordingly
-  };
-
-  const handleTestNotification = async () => {
-    if (!permissionGranted) {
-      Alert.alert('Permission Required', 'Please enable notifications first.');
-      return;
-    }
-
-    setIsLoading(true);
+  const loadPreferences = async () => {
     try {
-      const notificationService = NotificationService.getInstance();
-      await notificationService.sendImmediateNotification(
-        '🧪 Test Notification',
-        'This is a test notification from Rise!'
-      );
-      Alert.alert('Success', 'Test notification sent!');
+      setIsLoading(true);
+      const prefs = await oneSignalService.getPreferences();
+      setPreferences(prefs);
     } catch (error) {
-      Alert.alert('Error', 'Failed to send test notification.');
+      console.error('Failed to load preferences:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSaveSettings = async () => {
-    setIsLoading(true);
+  const updatePreference = async (key: keyof typeof preferences, value: boolean) => {
     try {
-      // Here you would save settings to storage and update notification schedules
-      Alert.alert('Success', 'Notification settings saved!');
+      const newPreferences = { ...preferences, [key]: value };
+      setPreferences(newPreferences);
+      
+      await oneSignalService.updatePreferences(newPreferences);
+      console.log(`Updated ${key} preference to: ${value}`);
     } catch (error) {
-      Alert.alert('Error', 'Failed to save settings.');
+      console.error(`Failed to update ${key} preference:`, error);
+      // Revert the change if update failed
+      setPreferences(preferences);
+      Alert.alert('Error', 'Failed to update notification preference. Please try again.');
+    }
+  };
+
+  const testNotification = async () => {
+    try {
+      await oneSignalService.sendTestNotification();
+      Alert.alert('Success', 'Test notification sent! Check your device.');
+    } catch (error) {
+      console.error('Failed to send test notification:', error);
+      Alert.alert('Error', 'Failed to send test notification. Please check your notification permissions.');
+    }
+  };
+
+  const testMotivationalQuote = async () => {
+    try {
+      const quote = quotesService.getQuoteByTimeOfDay();
+      await oneSignalService.sendMotivationalQuote({
+        id: quote.id,
+        quote: quote.quote,
+        author: quote.author,
+        category: quote.category,
+      });
+      Alert.alert('Success', 'Motivational quote notification sent!');
+    } catch (error) {
+      console.error('Failed to send motivational quote:', error);
+      Alert.alert('Error', 'Failed to send motivational quote notification.');
+    }
+  };
+
+  const scheduleDailyReminders = async () => {
+    try {
+      setIsLoading(true);
+      await oneSignalService.scheduleDailyReminders();
+      Alert.alert('Success', 'Daily reminders scheduled successfully!');
+    } catch (error) {
+      console.error('Failed to schedule daily reminders:', error);
+      Alert.alert('Error', 'Failed to schedule daily reminders. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const renderSetting = (setting: NotificationSetting) => (
-    <View key={setting.id} style={styles.settingCard}>
-      <View style={styles.settingHeader}>
-        <View style={styles.settingIcon}>
-          <Ionicons name={setting.icon} size={24} color="#007AFF" />
-        </View>
-        <View style={styles.settingContent}>
-          <Text style={styles.settingTitle}>{setting.title}</Text>
-          <Text style={styles.settingDescription}>{setting.description}</Text>
+  const renderSettingItem = (
+    title: string,
+    description: string,
+    value: boolean,
+    onValueChange: (value: boolean) => void,
+    icon?: string
+  ) => (
+    <View style={[styles.settingItem, { backgroundColor: theme.colors.surface }]}>
+      <View style={styles.settingContent}>
+        <View style={styles.settingText}>
+          <Text style={[styles.settingTitle, { color: theme.colors.text }]}>
+            {title}
+          </Text>
+          <Text style={[styles.settingDescription, { color: theme.colors.textSecondary }]}>
+            {description}
+          </Text>
         </View>
         <Switch
-          value={setting.enabled}
-          onValueChange={(value) => handleSettingToggle(setting.id, value)}
-          trackColor={{ false: '#E5E5EA', true: '#007AFF' }}
-          thumbColor={setting.enabled ? '#FFFFFF' : '#FFFFFF'}
+          value={value}
+          onValueChange={onValueChange}
+          trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+          thumbColor={value ? theme.colors.primary : theme.colors.textSecondary}
         />
       </View>
     </View>
   );
 
+  const renderActionButton = (
+    title: string,
+    onPress: () => void,
+    color: string = theme.colors.primary,
+    disabled: boolean = false
+  ) => (
+    <TouchableOpacity
+      style={[
+        styles.actionButton,
+        { backgroundColor: color, opacity: disabled ? 0.6 : 1 }
+      ]}
+      onPress={onPress}
+      disabled={disabled}
+    >
+      <Text style={styles.actionButtonText}>{title}</Text>
+    </TouchableOpacity>
+  );
+
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
-          <Ionicons name="chevron-back" size={24} color="#007AFF" />
+      <View style={[styles.header, { backgroundColor: theme.colors.surface }]}>
+        <TouchableOpacity onPress={onBack} style={styles.backButton}>
+          <Text style={[styles.backButtonText, { color: theme.colors.primary }]}>
+            ← Back
+          </Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notification Settings</Text>
+        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
+          Notification Settings
+        </Text>
         <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Permission Status */}
-        <View style={styles.permissionCard}>
-          <View style={styles.permissionHeader}>
-            <Ionicons 
-              name={permissionGranted ? "checkmark-circle" : "alert-circle"} 
-              size={24} 
-              color={permissionGranted ? "#34C759" : "#FF9500"} 
-            />
-            <Text style={styles.permissionTitle}>
-              {permissionGranted ? 'Notifications Enabled' : 'Notifications Disabled'}
-            </Text>
-          </View>
-          <Text style={styles.permissionDescription}>
-            {permissionGranted 
-              ? 'You\'ll receive helpful reminders throughout your day.'
-              : 'Enable notifications to get the most out of Rise.'
-            }
+        {/* Notification Types Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+            Notification Types
           </Text>
-          {!permissionGranted && (
-            <TouchableOpacity 
-              style={styles.enableButton}
-              onPress={checkNotificationPermissions}
-            >
-              <Text style={styles.enableButtonText}>Enable Notifications</Text>
-            </TouchableOpacity>
+          <Text style={[styles.sectionDescription, { color: theme.colors.textSecondary }]}>
+            Choose what types of notifications you want to receive
+          </Text>
+
+          {renderSettingItem(
+            'Daily Reminders',
+            'Get reminded about your daily goals and tasks',
+            preferences.reminders,
+            (value) => updatePreference('reminders', value)
+          )}
+
+          {renderSettingItem(
+            'Motivational Quotes',
+            'Receive inspiring quotes throughout the day',
+            preferences.motivation,
+            (value) => updatePreference('motivation', value)
+          )}
+
+          {renderSettingItem(
+            'Water Reminders',
+            'Get reminded to stay hydrated',
+            preferences.water,
+            (value) => updatePreference('water', value)
+          )}
+
+          {renderSettingItem(
+            'Exercise Reminders',
+            'Get motivated to stay active',
+            preferences.exercise,
+            (value) => updatePreference('exercise', value)
+          )}
+
+          {renderSettingItem(
+            'Sleep Reminders',
+            'Get reminded to prepare for bed',
+            preferences.sleep,
+            (value) => updatePreference('sleep', value)
           )}
         </View>
 
-        {/* Settings */}
-        <View style={styles.settingsSection}>
-          <Text style={styles.sectionTitle}>Notification Types</Text>
-          {settings.map(renderSetting)}
-        </View>
-
-        {/* Test Notification */}
-        <View style={styles.testSection}>
-          <Text style={styles.sectionTitle}>Test Notifications</Text>
-          <TouchableOpacity 
-            style={[styles.testButton, isLoading && styles.testButtonDisabled]}
-            onPress={handleTestNotification}
-            disabled={isLoading}
-          >
-            <Ionicons name="notifications" size={20} color="white" />
-            <Text style={styles.testButtonText}>
-              {isLoading ? 'Sending...' : 'Send Test Notification'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Save Button */}
-        <TouchableOpacity 
-          style={[styles.saveButton, isLoading && styles.saveButtonDisabled]}
-          onPress={handleSaveSettings}
-          disabled={isLoading}
-        >
-          <Text style={styles.saveButtonText}>
-            {isLoading ? 'Saving...' : 'Save Settings'}
+        {/* Test Notifications Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+            Test Notifications
           </Text>
-        </TouchableOpacity>
+          <Text style={[styles.sectionDescription, { color: theme.colors.textSecondary }]}>
+            Test your notification setup to make sure everything is working
+          </Text>
+
+          <View style={styles.buttonRow}>
+            {renderActionButton(
+              'Test Basic Notification',
+              testNotification,
+              theme.colors.primary
+            )}
+            {renderActionButton(
+              'Test Motivational Quote',
+              testMotivationalQuote,
+              theme.colors.secondary
+            )}
+          </View>
+
+          {renderActionButton(
+            'Schedule Daily Reminders',
+            scheduleDailyReminders,
+            theme.colors.success,
+            isLoading
+          )}
+        </View>
+
+        {/* Daily Schedule Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+            Daily Notification Schedule
+          </Text>
+          <Text style={[styles.sectionDescription, { color: theme.colors.textSecondary }]}>
+            Your notifications will be sent at these times throughout the day
+          </Text>
+
+          <View style={styles.scheduleGrid}>
+            {[
+              { time: '8:00 AM', title: 'Morning Motivation', emoji: '🌅' },
+              { time: '10:00 AM', title: 'Morning Check-in', emoji: '☀️' },
+              { time: '12:00 PM', title: 'Lunch Reminder', emoji: '🍽️' },
+              { time: '3:00 PM', title: 'Afternoon Boost', emoji: '💪' },
+              { time: '6:00 PM', title: 'Evening Reflection', emoji: '🌙' },
+              { time: '9:00 PM', title: 'Bedtime Prep', emoji: '😴' },
+            ].map((item, index) => (
+              <View key={index} style={[styles.scheduleItem, { backgroundColor: theme.colors.surface }]}>
+                <Text style={[styles.scheduleTime, { color: theme.colors.primary }]}>
+                  {item.time}
+                </Text>
+                <Text style={[styles.scheduleTitle, { color: theme.colors.text }]}>
+                  {item.title}
+                </Text>
+                <Text style={styles.scheduleEmoji}>{item.emoji}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Tips Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+            Tips for Best Experience
+          </Text>
+          <View style={styles.tipsContainer}>
+            <Text style={[styles.tipText, { color: theme.colors.textSecondary }]}>
+              • Make sure notifications are enabled in your device settings
+            </Text>
+            <Text style={[styles.tipText, { color: theme.colors.textSecondary }]}>
+              • Keep the app open occasionally to maintain connection
+            </Text>
+            <Text style={[styles.tipText, { color: theme.colors.textSecondary }]}>
+              • Add the app to your home screen for better performance
+            </Text>
+            <Text style={[styles.tipText, { color: theme.colors.textSecondary }]}>
+              • Check your notification permissions in browser settings
+            </Text>
+          </View>
+        </View>
+
+        {/* Platform-specific info */}
+        {Platform.OS === 'web' && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+              Web Notifications
+            </Text>
+            <Text style={[styles.sectionDescription, { color: theme.colors.textSecondary }]}>
+              For the best experience on mobile web, add this app to your home screen and enable notifications in your browser settings.
+            </Text>
+          </View>
+        )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: 'white',
+    paddingTop: 60,
+    paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: 'rgba(0,0,0,0.1)',
   },
   backButton: {
-    padding: 8,
+    padding: 10,
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1C1C1E',
+    fontSize: 20,
+    fontWeight: 'bold',
   },
   headerSpacer: {
-    width: 40,
+    width: 60,
   },
   content: {
     flex: 1,
     padding: 20,
   },
-  permissionCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  permissionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  permissionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginLeft: 12,
-  },
-  permissionDescription: {
-    fontSize: 14,
-    color: '#8E8E93',
-    lineHeight: 20,
-    marginBottom: 16,
-  },
-  enableButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
-  },
-  enableButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  settingsSection: {
-    marginBottom: 24,
+  section: {
+    marginBottom: 30,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1C1C1E',
-    marginBottom: 16,
+    marginBottom: 8,
   },
-  settingCard: {
-    backgroundColor: 'white',
+  sectionDescription: {
+    fontSize: 14,
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  settingItem: {
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  settingHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  settingIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F2F2F7',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
   },
   settingContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  settingText: {
     flex: 1,
+    marginRight: 16,
   },
   settingTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1C1C1E',
     marginBottom: 4,
   },
   settingDescription: {
     fontSize: 14,
-    color: '#8E8E93',
     lineHeight: 18,
   },
-  testSection: {
-    marginBottom: 24,
-  },
-  testButton: {
-    backgroundColor: '#34C759',
+  buttonRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  actionButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderRadius: 12,
-    shadowColor: '#34C759',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    minWidth: '48%',
   },
-  testButtonDisabled: {
-    backgroundColor: '#C7C7CC',
-    shadowOpacity: 0,
-  },
-  testButtonText: {
+  actionButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
-    marginLeft: 8,
   },
-  saveButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+  scheduleGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  scheduleItem: {
+    width: '48%',
+    padding: 16,
     borderRadius: 12,
     alignItems: 'center',
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
   },
-  saveButtonDisabled: {
-    backgroundColor: '#C7C7CC',
-    shadowOpacity: 0,
-  },
-  saveButtonText: {
-    color: 'white',
-    fontSize: 16,
+  scheduleTime: {
+    fontSize: 14,
     fontWeight: '600',
+    marginBottom: 4,
+  },
+  scheduleTitle: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  scheduleEmoji: {
+    fontSize: 24,
+  },
+  tipsContainer: {
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    padding: 16,
+    borderRadius: 12,
+  },
+  tipText: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 8,
   },
 });
 
