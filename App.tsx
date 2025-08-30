@@ -7,6 +7,10 @@ import { RootState } from './src/store';
 import { loadUser, saveUser, clearUser } from './src/store/slices/userSlice';
 import { loadDailyProgress } from './src/store/slices/progressSlice';
 import { saveQuestionnaire, loadQuestionnaire } from './src/store/slices/questionnaireSlice';
+import { loadGoals } from './src/store/slices/goalsSlice';
+import { loadNotes } from './src/store/slices/notesSlice';
+import { loadCalendarTasks } from './src/store/slices/calendarSlice';
+import { loadDayProgression } from './src/store/slices/dayProgressionSlice';
 import Onboarding from './src/components/Onboarding';
 import Dashboard from './src/components/Dashboard';
 import NotificationSettings from './src/components/NotificationSettings';
@@ -30,12 +34,32 @@ const AppContent: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [currentScreen, setCurrentScreen] = useState<Screen>('dashboard');
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { theme } = useTheme();
+
+  // Derive authentication state from user state
+  const isAuthenticated = user && user.isAuthenticated === true;
+
+  // Debug: Monitor user state changes
+  useEffect(() => {
+    console.log('App: User state changed:', user);
+    console.log('App: User onboarding status:', user?.isOnboardingComplete);
+    console.log('App: isAuthenticated derived value:', isAuthenticated);
+  }, [user, isAuthenticated]);
+
+  // Debug: Monitor authentication flow
+  useEffect(() => {
+    console.log('App: Authentication flow check:');
+    console.log('  - User exists:', !!user);
+    console.log('  - User onboarding complete:', user?.isOnboardingComplete);
+    console.log('  - isAuthenticated:', isAuthenticated);
+    console.log('  - Current screen:', currentScreen);
+  }, [user, isAuthenticated, currentScreen]);
 
   useEffect(() => {
     const initializeApp = async () => {
       try {
+        console.log('App: Starting initialization...');
+        
         // Check if user is authenticated
         const authService = AuthService.getInstance();
         const isAuthenticated = await authService.isAuthenticated();
@@ -43,31 +67,40 @@ const AppContent: React.FC = () => {
         console.log('App initialization - isAuthenticated:', isAuthenticated);
         
         if (isAuthenticated) {
+          console.log('App: User is authenticated, loading user data...');
+          
           // Load user data first, then progress and questionnaire
           await dispatch(loadUser());
+          console.log('App: User data loaded from Redux store');
           
           // Wait a bit for user data to be available, then load other data
           setTimeout(async () => {
             try {
+              console.log('App: Loading additional user data...');
               await Promise.all([
                 dispatch(loadDailyProgress()),
                 dispatch(loadQuestionnaire()),
+                dispatch(loadGoals()),
+                dispatch(loadNotes()),
+                dispatch(loadCalendarTasks()),
+                dispatch(loadDayProgression()),
               ]);
-              console.log('Progress and questionnaire data loaded successfully');
+              console.log('All data loaded successfully');
             } catch (error) {
-              console.error('Failed to load progress/questionnaire data:', error);
+              console.error('Failed to load data:', error);
             }
           }, 100);
           
           console.log('User data loaded successfully');
         } else {
+          console.log('App: User not authenticated, clearing user data...');
           // Clear any existing user data if not authenticated
           await dispatch(clearUser());
           console.log('User data cleared - not authenticated');
         }
         
         // Update the authentication state
-        setIsAuthenticated(isAuthenticated);
+        // setIsAuthenticated(isAuthenticated); // This line is removed as per the new_code
       } catch (error) {
         console.error('Failed to initialize app:', error);
         // Clear user data on error
@@ -82,18 +115,24 @@ const AppContent: React.FC = () => {
 
   const handleQuestionnaireComplete = async (userData: any) => {
     try {
+      console.log('App: handleQuestionnaireComplete called with userData:', userData);
+      
       // Get current user from auth service
       const authService = AuthService.getInstance();
       const currentUser = await authService.getCurrentUser();
+      console.log('App: Current user from auth service:', currentUser);
       
       // Get stored credentials to find the email
       const storedCredentials = await authService.getStoredCredentials();
+      console.log('App: Stored credentials:', storedCredentials);
       
       // Ensure we have an email - this is critical for authentication
       const userEmail = currentUser?.email || storedCredentials?.email;
       if (!userEmail) {
         throw new Error('User email not found. Cannot complete onboarding.');
       }
+      
+      console.log('App: Using email for user:', userEmail);
       
       // Create or update user with onboarding complete
       const updatedUser = {
@@ -107,14 +146,18 @@ const AppContent: React.FC = () => {
         currentDay: currentUser?.currentDay || 1,
       };
       
+      console.log('App: Updated user with onboarding complete:', updatedUser);
+      
       // Save user data with authentication status
       await authService.storeUser(updatedUser);
+      console.log('App: User saved to auth service');
       
       // Update user in Redux store
       await dispatch(saveUser(updatedUser));
+      console.log('App: User saved to Redux store');
       
       // Set authentication state
-      setIsAuthenticated(true);
+      // setIsAuthenticated(true); // This line is removed as per the new_code
       
       // Save questionnaire data
       const questionnaireData = {
@@ -134,7 +177,9 @@ const AppContent: React.FC = () => {
         motivationLevel: 5,
       };
       
+      console.log('App: Saving questionnaire data:', questionnaireData);
       await dispatch(saveQuestionnaire(questionnaireData));
+      console.log('App: Questionnaire data saved');
       
       // Set up smart notifications based on user goals
       const notificationService = NotificationService.getInstance();
@@ -166,17 +211,40 @@ const AppContent: React.FC = () => {
 
   const handleLogin = async (email: string, password: string) => {
     try {
+      console.log('App: handleLogin called for email:', email);
       const authService = AuthService.getInstance();
       const user = await authService.login(email, password);
       
+      console.log('App: User returned from authService.login:', user);
+      console.log('App: User onboarding status:', user.isOnboardingComplete);
+      
       // Update user in Redux store
-      await dispatch(saveUser({
+      const userToSave = {
         ...user,
         isOnboardingComplete: user.isOnboardingComplete || false,
-      }));
+      };
+      console.log('App: Saving user to Redux store:', userToSave);
+      
+      await dispatch(saveUser(userToSave));
       
       // Set authentication state
-      setIsAuthenticated(true);
+      // setIsAuthenticated(true); // This line is removed as per the new_code
+      
+      // Load user-specific data immediately
+      try {
+        console.log('App: Loading user-specific data...');
+        await Promise.all([
+          dispatch(loadDailyProgress()),
+          dispatch(loadQuestionnaire()),
+          dispatch(loadGoals()),
+          dispatch(loadNotes()),
+          dispatch(loadCalendarTasks()),
+          dispatch(loadDayProgression()),
+        ]);
+        console.log('User-specific data loaded successfully');
+      } catch (error) {
+        console.error('Failed to load user-specific data:', error);
+      }
       
       // Admins go straight to backend admin panel
       if (user.isAdmin) {
@@ -186,9 +254,12 @@ const AppContent: React.FC = () => {
       }
       
       // Set current screen based on onboarding status
+      console.log('App: Setting screen based on onboarding status:', user.isOnboardingComplete);
       if (user.isOnboardingComplete) {
+        console.log('App: User completed onboarding, setting screen to dashboard');
         setCurrentScreen('dashboard');
       } else {
+        console.log('App: User needs to complete onboarding');
         // User needs to complete onboarding
         // The App component will automatically show Onboarding
       }
@@ -212,7 +283,7 @@ const AppContent: React.FC = () => {
       }));
       
       // Set authentication state
-      setIsAuthenticated(true);
+      // setIsAuthenticated(true); // This line is removed as per the new_code
       
       console.log('Registration successful:', user.email);
     } catch (error) {
@@ -222,20 +293,32 @@ const AppContent: React.FC = () => {
   };
 
   const handleLogout = async () => {
+    console.log('App: handleLogout called');
     try {
       const authService = AuthService.getInstance();
+      console.log('App: Calling authService.logout()');
       await authService.logout();
       
+      console.log('App: Clearing user from Redux store');
       // Clear user from Redux store
       await dispatch(clearUser());
       
-      // Clear authentication state
-      setIsAuthenticated(false);
+      console.log('App: Clearing all user-specific data from Redux store');
+      // Clear all user-specific data from Redux store
+      await Promise.all([
+        dispatch({ type: 'goals/clearGoals' }),
+        dispatch({ type: 'notes/clearNotes' }),
+        dispatch({ type: 'calendar/clearCalendarTasks' }),
+        dispatch({ type: 'dayProgression/clearDayProgression' }),
+        dispatch({ type: 'progress/clearProgress' }),
+        dispatch({ type: 'questionnaire/clearQuestionnaire' }),
+      ]);
       
+      console.log('App: Setting authMode to login');
       // Reset to login mode
       setAuthMode('login');
       
-      console.log('Logout successful');
+      console.log('Logout successful - all user data cleared');
     } catch (error) {
       console.error('Logout failed:', error);
     }
@@ -246,6 +329,7 @@ const AppContent: React.FC = () => {
   };
 
   const handleNavigateToProfile = () => {
+    console.log('App: handleNavigateToProfile called, setting currentScreen to profile');
     setCurrentScreen('profile');
   };
 
@@ -288,6 +372,7 @@ const AppContent: React.FC = () => {
 
   // Show login/register if not authenticated
   if (!isAuthenticated) {
+    console.log('App: User not authenticated, showing login/register');
     if (authMode === 'login') {
       return <Login onLogin={handleLogin} onRegister={() => setAuthMode('register')} />;
     } else {
@@ -297,8 +382,11 @@ const AppContent: React.FC = () => {
 
   // Show questionnaire if user hasn't completed onboarding
   if (!user || !user.isOnboardingComplete) {
+    console.log('App: User not completed onboarding, showing onboarding');
     return <Onboarding onComplete={handleQuestionnaireComplete} onGoHome={handleLogout} />;
   }
+
+  console.log('App: User authenticated and completed onboarding, showing main app');
 
   // User is authenticated and has completed onboarding - show main app
   // If current screen is dashboard, show dashboard
@@ -321,6 +409,7 @@ const AppContent: React.FC = () => {
     case 'stats':
       return <Stats onBack={handleBackToDashboard} />;
     case 'profile':
+      console.log('App: Rendering Profile component');
       return (
         <Profile 
           onBack={handleBackToDashboard} 

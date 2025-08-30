@@ -16,18 +16,28 @@ const initialState: UserState = {
 
 export const loadUser = createAsyncThunk('user/loadUser', async () => {
   try {
-    const userData = await AsyncStorage.getItem('user');
-    return userData ? JSON.parse(userData) : null;
+    console.log('userSlice: loadUser called, checking AsyncStorage for rise_user');
+    const userData = await AsyncStorage.getItem('rise_user');
+    console.log('userSlice: AsyncStorage data for rise_user:', userData);
+    const user = userData ? JSON.parse(userData) : null;
+    console.log('userSlice: Parsed user data:', user);
+    console.log('userSlice: User onboarding status:', user?.isOnboardingComplete);
+    return user;
   } catch (error) {
+    console.error('userSlice: loadUser error:', error);
     throw new Error('Failed to load user data');
   }
 });
 
 export const saveUser = createAsyncThunk('user/saveUser', async (user: User) => {
   try {
-    await AsyncStorage.setItem('user', JSON.stringify(user));
+    console.log('userSlice: saveUser called, saving user:', user);
+    console.log('userSlice: User onboarding status being saved:', user.isOnboardingComplete);
+    await AsyncStorage.setItem('rise_user', JSON.stringify(user));
+    console.log('userSlice: User saved successfully to AsyncStorage');
     return user;
   } catch (error) {
+    console.error('userSlice: saveUser error:', error);
     throw new Error('Failed to save user data');
   }
 });
@@ -42,20 +52,20 @@ export const createUser = createAsyncThunk('user/createUser', async (userData: P
       currentDay: 1,
       isOnboardingComplete: false,
     };
-    await AsyncStorage.setItem('user', JSON.stringify(user));
+    await AsyncStorage.setItem('rise_user', JSON.stringify(user));
     return user;
   } catch (error) {
-    throw new Error('Failed to create user');
+    throw new Error('Failed to create user data');
   }
 });
 
 export const updateUserDay = createAsyncThunk('user/updateUserDay', async (day: number) => {
   try {
-    const userData = await AsyncStorage.getItem('user');
+    const userData = await AsyncStorage.getItem('rise_user');
     if (userData) {
       const user = JSON.parse(userData);
       const updatedUser = { ...user, currentDay: day };
-      await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+      await AsyncStorage.setItem('rise_user', JSON.stringify(updatedUser));
       return updatedUser;
     }
     throw new Error('No user data found');
@@ -72,7 +82,10 @@ const userSlice = createSlice({
       state.user = action.payload;
     },
     clearUser: (state) => {
+      console.log('userSlice: clearUser called, clearing user state');
+      console.log('userSlice: User state before clearing:', state.user);
       state.user = null;
+      console.log('userSlice: user state cleared, current state:', state);
     },
     setOnboardingComplete: (state) => {
       if (state.user) {

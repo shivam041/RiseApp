@@ -6,11 +6,22 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
+  Modal,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
-import { useSelector } from 'react-redux';
-import { RootState } from '../store';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState, AppDispatch } from '../store';
+import { 
+  loadCalendarTasks, 
+  addCalendarTask, 
+  updateCalendarTask, 
+  deleteCalendarTask, 
+  toggleTaskCompletion,
+  CalendarTask 
+} from '../store/slices/calendarSlice';
 
 const { width, height } = Dimensions.get('window');
 
@@ -27,11 +38,32 @@ interface WeekTask {
 
 const Calendar: React.FC<CalendarProps> = ({ onBack }) => {
   const { theme } = useTheme();
+  const dispatch = useDispatch<AppDispatch>();
   const [selectedWeek, setSelectedWeek] = useState(1);
+  const [showAddTaskModal, setShowAddTaskModal] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [taskFormData, setTaskFormData] = useState({
+    title: '',
+    description: '',
+    time: '',
+    duration: '30',
+    category: 'personal' as CalendarTask['category'],
+    priority: 'medium' as CalendarTask['priority'],
+    isRecurring: false,
+    recurringPattern: 'daily' as CalendarTask['recurringPattern'],
+    tags: '',
+  });
+  const [editingTask, setEditingTask] = useState<CalendarTask | null>(null);
   
   // Get progress data from Redux store
   const currentDay = useSelector((state: RootState) => state.progress.currentDay);
   const dailyProgress = useSelector((state: RootState) => state.progress.dailyProgress);
+  const { tasks: calendarTasks, isLoading } = useSelector((state: RootState) => state.calendar);
+
+  // Load calendar tasks when component mounts
+  useEffect(() => {
+    dispatch(loadCalendarTasks());
+  }, [dispatch]);
 
   // Calculate which week the user is currently in
   const getCurrentWeek = () => {
@@ -200,6 +232,149 @@ const Calendar: React.FC<CalendarProps> = ({ onBack }) => {
 
   const currentWeek = weeks.find(w => w.id === selectedWeek);
 
+  const handleAddTask = () => {
+    setTaskFormData({
+      title: '',
+      description: '',
+      time: '',
+      duration: '30',
+      category: 'personal',
+      priority: 'medium',
+      isRecurring: false,
+      recurringPattern: 'daily',
+      tags: '',
+    });
+    setEditingTask(null);
+    setShowAddTaskModal(true);
+  };
+
+  const handleEditTask = (task: CalendarTask) => {
+    setTaskFormData({
+      title: task.title,
+      description: task.description,
+      time: task.time || '',
+      duration: task.duration.toString(),
+      category: task.category,
+      priority: task.priority,
+      isRecurring: task.isRecurring,
+      recurringPattern: task.recurringPattern || 'daily',
+      tags: task.tags.join(', '),
+    });
+    setEditingTask(task);
+    setShowAddTaskModal(true);
+  };
+
+  const handleSaveTask = async () => {
+    if (!taskFormData.title.trim()) {
+      Alert.alert('Error', 'Task title is required');
+      return;
+    }
+
+    try {
+      const taskData = {
+        title: taskFormData.title,
+        description: taskFormData.description,
+        date: selectedDate,
+        time: taskFormData.time || undefined,
+        duration: parseInt(taskFormData.duration),
+        category: taskFormData.category,
+        priority: taskFormData.priority,
+        isCompleted: false,
+        isRecurring: taskFormData.isRecurring,
+        recurringPattern: taskFormData.isRecurring ? taskFormData.recurringPattern : undefined,
+        tags: taskFormData.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+      };
+
+      if (editingTask) {
+        await dispatch(updateCalendarTask({ ...editingTask, ...taskData })).unwrap();
+        Alert.alert('Success', 'Task updated successfully!');
+      } else {
+        await dispatch(addCalendarTask(taskData)).unwrap();
+        Alert.alert('Success', 'Task added successfully!');
+      }
+
+      setShowAddTaskModal(false);
+      setEditingTask(null);
+      setTaskFormData({
+        title: '',
+        description: '',
+        time: '',
+        duration: '30',
+        category: 'personal',
+        priority: 'medium',
+        isRecurring: false,
+        recurringPattern: 'daily',
+        tags: '',
+      });
+    } catch (error) {
+      Alert.alert('Error', 'Failed to save task. Please try again.');
+    }
+  };
+
+  const handleDeleteTask = async (task: CalendarTask) => {
+    Alert.alert(
+      'Delete Task',
+      `Are you sure you want to delete "${task.title}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await dispatch(deleteCalendarTask(task.id)).unwrap();
+              Alert.alert('Success', 'Task deleted successfully!');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete task. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleToggleTaskCompletion = async (task: CalendarTask) => {
+    try {
+      await dispatch(toggleTaskCompletion(task.id)).unwrap();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to toggle task completion. Please try again.');
+    }
+  };
+
+  const getTasksForDate = (date: string) => {
+    return calendarTasks.filter(task => task.date === date);
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high':
+        return '#EF4444';
+      case 'medium':
+        return '#F59E0B';
+      case 'low':
+        return '#10B981';
+      default:
+        return theme.colors.primary;
+    }
+  };
+
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case 'work':
+        return 'briefcase';
+      case 'personal':
+        return 'person';
+      case 'health':
+        return 'fitness';
+      case 'learning':
+        return 'school';
+      case 'social':
+        return 'people';
+      default:
+        return 'star';
+    }
+  };
+
   const renderCalendar = () => {
     const days = [];
     for (let i = 1; i <= 31; i++) {
@@ -210,15 +385,24 @@ const Calendar: React.FC<CalendarProps> = ({ onBack }) => {
         day.completedTasks > 0
       );
       
+      // Check if there are personal tasks for this date
+      const dateStr = new Date(2024, 4, i).toISOString().split('T')[0];
+      const hasPersonalTasks = getTasksForDate(dateStr).length > 0;
+      
       days.push(
-        <View
+        <TouchableOpacity
           key={i}
           style={[
             styles.calendarDay,
             isActive && styles.calendarDayActive,
             isCurrentDay && styles.calendarDayCurrent,
             isCompleted && styles.calendarDayCompleted,
+            hasPersonalTasks && styles.calendarDayHasTasks,
           ]}
+          onPress={() => {
+            const dateStr = new Date(2024, 4, i).toISOString().split('T')[0];
+            setSelectedDate(dateStr);
+          }}
         >
           <Text style={[
             styles.calendarDayText,
@@ -227,7 +411,10 @@ const Calendar: React.FC<CalendarProps> = ({ onBack }) => {
           ]}>
             {i}
           </Text>
-        </View>
+          {hasPersonalTasks && (
+            <View style={styles.taskIndicator} />
+          )}
+        </TouchableOpacity>
       );
     }
 
@@ -288,6 +475,96 @@ const Calendar: React.FC<CalendarProps> = ({ onBack }) => {
     </View>
   );
 
+  const renderPersonalTasks = () => {
+    const tasksForSelectedDate = getTasksForDate(selectedDate);
+    
+    if (tasksForSelectedDate.length === 0) {
+      return (
+        <View style={styles.noTasksContainer}>
+          <Text style={[styles.noTasksText, { color: theme.colors.textSecondary }]}>
+            No personal tasks for {new Date(selectedDate).toLocaleDateString()}
+          </Text>
+          <TouchableOpacity style={styles.addTaskButton} onPress={handleAddTask}>
+            <Ionicons name="add" size={20} color="white" />
+            <Text style={styles.addTaskButtonText}>Add Task</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.personalTasksContainer}>
+        <View style={styles.personalTasksHeader}>
+          <Text style={[styles.personalTasksTitle, { color: theme.colors.text }]}>
+            Personal Tasks for {new Date(selectedDate).toLocaleDateString()}
+          </Text>
+          <TouchableOpacity style={styles.addTaskButton} onPress={handleAddTask}>
+            <Ionicons name="add" size={20} color="white" />
+            <Text style={styles.addTaskButtonText}>Add Task</Text>
+          </TouchableOpacity>
+        </View>
+        
+        {tasksForSelectedDate.map((task) => (
+          <View key={task.id} style={[
+            styles.personalTaskItem,
+            { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }
+          ]}>
+            <View style={styles.taskHeader}>
+              <View style={styles.taskLeft}>
+                <View style={[styles.taskIcon, { backgroundColor: `${getPriorityColor(task.priority)}20` }]}>
+                  <Ionicons name={getCategoryIcon(task.category) as any} size={16} color={getPriorityColor(task.priority)} />
+                </View>
+                <View style={styles.taskInfo}>
+                  <Text style={[styles.taskTitle, { color: theme.colors.text }]}>
+                    {task.title}
+                  </Text>
+                  <Text style={[styles.taskDescription, { color: theme.colors.textSecondary }]}>
+                    {task.description}
+                  </Text>
+                  <View style={styles.taskMeta}>
+                    {task.time && (
+                      <Text style={[styles.taskMetaText, { color: theme.colors.primary }]}>
+                        {task.time} ({task.duration}min)
+                      </Text>
+                    )}
+                    <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(task.priority) }]}>
+                      <Text style={styles.priorityText}>{task.priority}</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+              <View style={styles.taskActions}>
+                <TouchableOpacity
+                  style={[styles.taskCheckbox, {
+                    borderColor: task.isCompleted ? theme.colors.primary : theme.colors.border,
+                    backgroundColor: task.isCompleted ? theme.colors.primary : 'transparent',
+                  }]}
+                  onPress={() => handleToggleTaskCompletion(task)}
+                >
+                  {task.isCompleted && (
+                    <Ionicons name="checkmark" size={16} color="white" />
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.taskActionButton}
+                  onPress={() => handleEditTask(task)}
+                >
+                  <Ionicons name="create" size={16} color={theme.colors.primary} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.taskActionButton}
+                  onPress={() => handleDeleteTask(task)}
+                >
+                  <Ionicons name="trash" size={16} color={theme.colors.error || '#EF4444'} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
@@ -313,9 +590,108 @@ const Calendar: React.FC<CalendarProps> = ({ onBack }) => {
         {/* Calendar */}
         {renderCalendar()}
 
+        {/* Personal Tasks */}
+        {renderPersonalTasks()}
+
         {/* Week Tasks */}
         {renderWeekTasks()}
       </ScrollView>
+
+      {/* Add/Edit Task Modal */}
+      <Modal
+        visible={showAddTaskModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowAddTaskModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+              {editingTask ? 'Edit Task' : 'Add New Task'}
+            </Text>
+            
+            <TextInput
+              style={[styles.modalInput, { 
+                backgroundColor: theme.colors.background,
+                borderColor: theme.colors.border,
+                color: theme.colors.text
+              }]}
+              placeholder="Task title"
+              placeholderTextColor={theme.colors.textSecondary}
+              value={taskFormData.title}
+              onChangeText={(text) => setTaskFormData({ ...taskFormData, title: text })}
+            />
+            
+            <TextInput
+              style={[styles.modalInput, { 
+                backgroundColor: theme.colors.background,
+                borderColor: theme.colors.border,
+                color: theme.colors.text
+              }]}
+              placeholder="Description"
+              placeholderTextColor={theme.colors.textSecondary}
+              value={taskFormData.description}
+              onChangeText={(text) => setTaskFormData({ ...taskFormData, description: text })}
+            />
+            
+            <View style={styles.modalRow}>
+              <TextInput
+                style={[styles.modalInputHalf, { 
+                  backgroundColor: theme.colors.background,
+                  borderColor: theme.colors.border,
+                  color: theme.colors.text
+                }]}
+                placeholder="Time (HH:MM)"
+                placeholderTextColor={theme.colors.textSecondary}
+                value={taskFormData.time}
+                onChangeText={(text) => setTaskFormData({ ...taskFormData, time: text })}
+              />
+              
+              <TextInput
+                style={[styles.modalInputHalf, { 
+                  backgroundColor: theme.colors.background,
+                  borderColor: theme.colors.border,
+                  color: theme.colors.text
+                }]}
+                placeholder="Duration (min)"
+                placeholderTextColor={theme.colors.textSecondary}
+                value={taskFormData.duration}
+                onChangeText={(text) => setTaskFormData({ ...taskFormData, duration: text })}
+                keyboardType="numeric"
+              />
+            </View>
+            
+            <TextInput
+              style={[styles.modalInput, { 
+                backgroundColor: theme.colors.background,
+                borderColor: theme.colors.border,
+                color: theme.colors.text
+              }]}
+              placeholder="Tags (comma separated)"
+              placeholderTextColor={theme.colors.textSecondary}
+              value={taskFormData.tags}
+              onChangeText={(text) => setTaskFormData({ ...taskFormData, tags: text })}
+            />
+            
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: theme.colors.error || '#EF4444' }]}
+                onPress={() => setShowAddTaskModal(false)}
+              >
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: theme.colors.primary }]}
+                onPress={handleSaveTask}
+              >
+                <Text style={styles.modalButtonText}>
+                  {editingTask ? 'Update' : 'Add'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Bottom Navigation */}
       <View
@@ -441,6 +817,7 @@ const styles = StyleSheet.create({
     margin: 2,
     borderRadius: 15,
     backgroundColor: '#2D1B1B',
+    position: 'relative',
   },
   calendarDayActive: {
     backgroundColor: '#F59E0B',
@@ -451,7 +828,11 @@ const styles = StyleSheet.create({
     borderColor: 'white',
   },
   calendarDayCompleted: {
-    backgroundColor: '#4CAF50', // A green color for completed days
+    backgroundColor: '#4CAF50',
+  },
+  calendarDayHasTasks: {
+    borderWidth: 2,
+    borderColor: '#3B82F6',
   },
   calendarDayText: {
     fontSize: 12,
@@ -463,6 +844,124 @@ const styles = StyleSheet.create({
   },
   calendarDayTextCurrent: {
     color: 'white',
+  },
+  taskIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#3B82F6',
+  },
+  personalTasksContainer: {
+    marginBottom: 24,
+  },
+  personalTasksHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  personalTasksTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    flex: 1,
+  },
+  addTaskButton: {
+    backgroundColor: '#10B981',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+  },
+  addTaskButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  noTasksContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    marginBottom: 24,
+  },
+  noTasksText: {
+    fontSize: 16,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  personalTaskItem: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  taskHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  taskLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  taskIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  taskInfo: {
+    flex: 1,
+  },
+  taskTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  taskDescription: {
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  taskMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  taskMetaText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  priorityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  priorityText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  taskActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  taskCheckbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  taskActionButton: {
+    padding: 4,
   },
   weekTasksContainer: {
     marginBottom: 24,
@@ -515,6 +1014,61 @@ const styles = StyleSheet.create({
     backgroundColor: '#1F2937',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '90%',
+    maxWidth: 400,
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#3D2A2A',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  modalInput: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    fontSize: 16,
+    marginBottom: 16,
+  },
+  modalRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  modalInputHalf: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    fontSize: 16,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

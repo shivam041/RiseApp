@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,21 @@ import {
   ScrollView,
   Dimensions,
   Alert,
+  TextInput,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
-import { useSelector } from 'react-redux';
-import { RootState } from '../store';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState, AppDispatch } from '../store';
+import { 
+  loadGoals, 
+  addGoal, 
+  updateGoal, 
+  deleteGoal, 
+  toggleGoalStatus,
+  Goal 
+} from '../store/slices/goalsSlice';
 
 const { width, height } = Dimensions.get('window');
 
@@ -22,96 +32,141 @@ interface ProfileProps {
   onNavigateToAdminPanel?: () => void;
 }
 
-interface Goal {
-  id: string;
+interface GoalFormData {
   title: string;
   description: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  category: Goal['category'];
   value: string;
-  field: keyof QuestionnaireResponse;
-}
-
-interface QuestionnaireResponse {
-  sleepGoal: string;
-  hydrationGoal: number;
-  exerciseGoal: number;
-  mindGoal: number;
-  screenTimeGoal: number;
-  showerGoal: number;
-  wakeUpTime: string;
-  bedTime: string;
+  target: string;
 }
 
 const Profile: React.FC<ProfileProps> = ({ onBack, onNavigateToNotificationSettings, onLogout, onNavigateToAdminPanel }) => {
   const { theme, toggleTheme } = useTheme();
+  const dispatch = useDispatch<AppDispatch>();
   const [editingGoal, setEditingGoal] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>('');
+  const [showAddGoalModal, setShowAddGoalModal] = useState(false);
+  const [goalFormData, setGoalFormData] = useState<GoalFormData>({
+    title: '',
+    description: '',
+    category: 'custom',
+    value: '',
+    target: '',
+  });
+  
+  // Debug: Check if onLogout prop is received
+  console.log('Profile: Component rendered with onLogout:', !!onLogout);
+  console.log('Profile: onLogout function:', onLogout);
+  
   const user = useSelector((state: RootState) => state.user.user);
   const questionnaire = useSelector((state: RootState) => state.questionnaire.questionnaire);
+  const { goals, isLoading } = useSelector((state: RootState) => state.goals);
 
-  // Create goals based on user's questionnaire responses
-  const goals: Goal[] = [
+  // Load goals when component mounts
+  useEffect(() => {
+    dispatch(loadGoals());
+  }, [dispatch]);
+
+  // Create default goals based on user's questionnaire responses
+  const defaultGoals: Goal[] = [
     {
       id: 'sleep',
       title: 'Sleep Goal',
       description: 'Your wake-up time goal',
-      icon: 'moon',
-      value: questionnaire?.sleepGoal || '6:00 AM',
-      field: 'sleepGoal',
+      category: 'sleep',
+      value: questionnaire?.wakeUpTime || '6:00 AM',
+      target: 'Wake up early every day',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     {
       id: 'hydration',
       title: 'Hydration Goal',
       description: 'Your daily water intake goal',
-      icon: 'water',
-      value: `${questionnaire?.hydrationGoal || 8} glasses`,
-      field: 'hydrationGoal',
+      category: 'water',
+      value: `${questionnaire?.waterGoal || '8'} glasses`,
+      target: 'Stay hydrated throughout the day',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     {
       id: 'exercise',
       title: 'Exercise Goal',
       description: 'Your fitness and activity goals',
-      icon: 'fitness',
-      value: `${questionnaire?.exerciseGoal || 30} minutes`,
-      field: 'exerciseGoal',
+      category: 'exercise',
+      value: `${questionnaire?.exerciseGoal || '30'} minutes`,
+      target: 'Build strength and endurance',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     {
       id: 'mind',
       title: 'Mind Goal',
       description: 'Your mental wellness goals',
-      icon: 'book',
-      value: `${questionnaire?.mindGoal || 10} minutes`,
-      field: 'mindGoal',
+      category: 'mind',
+      value: `${questionnaire?.mindGoal || '10'} minutes`,
+      target: 'Find inner peace and focus',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     {
       id: 'screenTime',
       title: 'Screen Time Goal',
       description: 'Your digital wellness goals',
-      icon: 'phone-portrait',
-      value: `${questionnaire?.screenTimeGoal || 2} hours`,
-      field: 'screenTimeGoal',
+      category: 'screenTime',
+      value: `${questionnaire?.screenTimeGoal || '2'} hours`,
+      target: 'Limit digital consumption',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     {
       id: 'shower',
       title: 'Shower Goal',
       description: 'Your shower and hygiene goals',
-      icon: 'water',
-      value: `${questionnaire?.showerGoal || 2} minutes`,
-      field: 'showerGoal',
+      category: 'shower',
+      value: `${questionnaire?.showerGoal || '2'} minutes`,
+      target: 'Build mental toughness',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
   ];
+
+  // Initialize default goals if none exist
+  useEffect(() => {
+    if (goals.length === 0 && !isLoading) {
+      defaultGoals.forEach(goal => {
+        dispatch(addGoal({
+          title: goal.title,
+          description: goal.description,
+          category: goal.category,
+          value: goal.value,
+          target: goal.target,
+          isActive: goal.isActive,
+        }));
+      });
+    }
+  }, [goals.length, isLoading, dispatch]);
 
   const handleGoalEdit = (goal: Goal) => {
     setEditingGoal(goal.id);
     setEditingValue(goal.value);
   };
 
-  const handleGoalSave = async () => {
-    if (!editingGoal) return;
+  const handleGoalSave = async (goal: Goal) => {
+    if (!editingValue.trim()) {
+      Alert.alert('Error', 'Goal value cannot be empty');
+      return;
+    }
 
     try {
-      // In a real app, you would update the user's goals in the backend
-      // For now, we'll just show a success message
+      const updatedGoal = { ...goal, value: editingValue };
+      await dispatch(updateGoal(updatedGoal)).unwrap();
       Alert.alert('Success', 'Goal updated successfully!');
       setEditingGoal(null);
       setEditingValue('');
@@ -123,6 +178,82 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onNavigateToNotificationSetti
   const handleGoalCancel = () => {
     setEditingGoal(null);
     setEditingValue('');
+  };
+
+  const handleAddGoal = () => {
+    setGoalFormData({
+      title: '',
+      description: '',
+      category: 'custom',
+      value: '',
+      target: '',
+    });
+    setShowAddGoalModal(true);
+  };
+
+  const handleSaveNewGoal = async () => {
+    if (!goalFormData.title.trim() || !goalFormData.value.trim()) {
+      Alert.alert('Error', 'Title and value are required');
+      return;
+    }
+
+    try {
+              await dispatch(addGoal({
+          title: goalFormData.title,
+          description: goalFormData.description,
+          category: goalFormData.category,
+          value: goalFormData.value,
+          target: goalFormData.target,
+          isActive: true,
+        })).unwrap();
+      
+      Alert.alert('Success', 'New goal added successfully!');
+      setShowAddGoalModal(false);
+      setGoalFormData({
+        title: '',
+        description: '',
+        category: 'custom',
+        value: '',
+        target: '',
+      });
+    } catch (error) {
+      Alert.alert('Error', 'Failed to add goal. Please try again.');
+    }
+  };
+
+  const handleDeleteGoal = async (goal: Goal) => {
+    if (goal.category !== 'custom') {
+      Alert.alert('Cannot Delete', 'Default goals cannot be deleted. You can only edit their values.');
+      return;
+    }
+
+    Alert.alert(
+      'Delete Goal',
+      `Are you sure you want to delete "${goal.title}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await dispatch(deleteGoal(goal.id)).unwrap();
+              Alert.alert('Success', 'Goal deleted successfully!');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete goal. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleToggleGoalStatus = async (goal: Goal) => {
+    try {
+      await dispatch(toggleGoalStatus(goal)).unwrap();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to toggle goal status. Please try again.');
+    }
   };
 
   const handleDarkModeToggle = () => {
@@ -168,20 +299,73 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onNavigateToNotificationSetti
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: () => {
-            onLogout();
+    console.log('Profile: Logout button clicked');
+    
+    // For web compatibility, use window.confirm instead of Alert
+    if (typeof window !== 'undefined' && window.confirm) {
+      const confirmed = window.confirm('Are you sure you want to logout?');
+      if (confirmed) {
+        console.log('Profile: User confirmed logout via window.confirm, calling onLogout');
+        onLogout();
+      } else {
+        console.log('Profile: User cancelled logout via window.confirm');
+      }
+    } else {
+      // Fallback to Alert for mobile
+      Alert.alert(
+        'Logout',
+        'Are you sure you want to logout?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Logout',
+            style: 'destructive',
+            onPress: () => {
+              console.log('Profile: User confirmed logout via Alert, calling onLogout');
+              onLogout();
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
+  };
+
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case 'sleep':
+        return 'moon';
+      case 'water':
+        return 'water';
+      case 'exercise':
+        return 'fitness';
+      case 'mind':
+        return 'book';
+      case 'screenTime':
+        return 'phone-portrait';
+      case 'shower':
+        return 'water';
+      default:
+        return 'star';
+    }
+  };
+
+  const getCategoryColor = (category: string) => {
+    switch (category) {
+      case 'sleep':
+        return '#8B5CF6';
+      case 'water':
+        return '#06B6D4';
+      case 'exercise':
+        return '#10B981';
+      case 'mind':
+        return '#F59E0B';
+      case 'screenTime':
+        return '#EF4444';
+      case 'shower':
+        return '#3B82F6';
+      default:
+        return theme.colors.primary;
+    }
   };
 
   const renderGoalCard = (goal: Goal) => (
@@ -189,12 +373,16 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onNavigateToNotificationSetti
       key={goal.id}
       style={[
         styles.goalCard,
-        { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }
+        { 
+          backgroundColor: theme.colors.surface, 
+          borderColor: theme.colors.border,
+          opacity: goal.isActive ? 1 : 0.6,
+        }
       ]}
     >
       <View style={styles.goalHeader}>
-        <View style={styles.goalIconContainer}>
-          <Ionicons name={goal.icon} size={24} color={theme.colors.primary} />
+        <View style={[styles.goalIconContainer, { backgroundColor: `${getCategoryColor(goal.category)}20` }]}>
+          <Ionicons name={getCategoryIcon(goal.category) as any} size={24} color={getCategoryColor(goal.category)} />
         </View>
         <View style={styles.goalInfo}>
           <Text style={[styles.goalTitle, { color: theme.colors.text }]}>
@@ -204,38 +392,71 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onNavigateToNotificationSetti
             {goal.description}
           </Text>
         </View>
-        <TouchableOpacity
-          style={styles.editButton}
-          onPress={() => handleGoalEdit(goal)}
-        >
-          <Ionicons name="create" size={20} color={theme.colors.primary} />
-        </TouchableOpacity>
+        <View style={styles.goalActions}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => handleToggleGoalStatus(goal)}
+          >
+            <Ionicons 
+              name={goal.isActive ? "eye" : "eye-off"} 
+              size={20} 
+              color={goal.isActive ? theme.colors.primary : theme.colors.textSecondary} 
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => handleGoalEdit(goal)}
+          >
+            <Ionicons name="create" size={20} color={theme.colors.primary} />
+          </TouchableOpacity>
+          {goal.category === 'custom' && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => handleDeleteGoal(goal)}
+            >
+              <Ionicons name="trash" size={20} color={theme.colors.error || '#EF4444'} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
       
       {editingGoal === goal.id ? (
         <View style={styles.editContainer}>
-          <Text style={[styles.goalValue, { color: theme.colors.primary }]}>
-            {editingValue}
-          </Text>
+          <TextInput
+            style={[styles.editInput, { 
+              backgroundColor: theme.colors.background,
+              borderColor: theme.colors.border,
+              color: theme.colors.text
+            }]}
+            value={editingValue}
+            onChangeText={setEditingValue}
+            placeholder="Enter new value..."
+            placeholderTextColor={theme.colors.textSecondary}
+          />
           <View style={styles.editActions}>
             <TouchableOpacity
-              style={[styles.editActionButton, { backgroundColor: theme.colors.error }]}
+              style={[styles.editActionButton, { backgroundColor: theme.colors.error || '#EF4444' }]}
               onPress={handleGoalCancel}
             >
               <Text style={styles.editActionText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.editActionButton, { backgroundColor: theme.colors.primary }]}
-              onPress={handleGoalSave}
+              onPress={() => handleGoalSave(goal)}
             >
               <Text style={styles.editActionText}>Save</Text>
             </TouchableOpacity>
           </View>
         </View>
       ) : (
-        <Text style={[styles.goalValue, { color: theme.colors.primary }]}>
-          {goal.value}
-        </Text>
+        <View style={styles.goalContent}>
+          <Text style={[styles.goalValue, { color: theme.colors.primary }]}>
+            {goal.value}
+          </Text>
+          <Text style={[styles.goalTarget, { color: theme.colors.textSecondary }]}>
+            {goal.target}
+          </Text>
+        </View>
       )}
     </View>
   );
@@ -248,46 +469,57 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onNavigateToNotificationSetti
     showSwitch?: boolean,
     switchValue?: boolean,
     onSwitchChange?: (value: boolean) => void
-  ) => (
-    <TouchableOpacity
-      style={[styles.settingItem, { backgroundColor: theme.colors.surface }]}
-      onPress={onPress}
-      disabled={!onPress}
-    >
-      <View style={styles.settingIcon}>
-        <Ionicons name={icon} size={24} color={theme.colors.primary} />
-      </View>
-      <View style={styles.settingInfo}>
-        <Text style={[styles.settingTitle, { color: theme.colors.text }]}>
-          {title}
-        </Text>
-        <Text style={[styles.settingSubtitle, { color: theme.colors.textSecondary }]}>
-          {subtitle}
-        </Text>
-      </View>
-      {showSwitch ? (
-        <TouchableOpacity
-          style={[
-            styles.switch,
-            { backgroundColor: switchValue ? theme.colors.primary : theme.colors.border }
-          ]}
-          onPress={() => onSwitchChange?.(!switchValue)}
-        >
-          <View
+  ) => {
+    console.log(`Profile: renderSettingItem called for "${title}" with onPress:`, !!onPress);
+    return (
+      <TouchableOpacity
+        style={[styles.settingItem, { backgroundColor: theme.colors.surface }]}
+        onPress={() => {
+          console.log(`Profile: Setting item "${title}" pressed`);
+          if (onPress) {
+            console.log(`Profile: Calling onPress for "${title}"`);
+            onPress();
+          } else {
+            console.log(`Profile: No onPress handler for "${title}"`);
+          }
+        }}
+        disabled={!onPress}
+      >
+        <View style={styles.settingIcon}>
+          <Ionicons name={icon} size={24} color={theme.colors.primary} />
+        </View>
+        <View style={styles.settingInfo}>
+          <Text style={[styles.settingTitle, { color: theme.colors.text }]}>
+            {title}
+          </Text>
+          <Text style={[styles.settingSubtitle, { color: theme.colors.textSecondary }]}>
+            {subtitle}
+          </Text>
+        </View>
+        {showSwitch ? (
+          <TouchableOpacity
             style={[
-              styles.switchThumb,
-              {
-                backgroundColor: 'white',
-                transform: [{ translateX: switchValue ? 20 : 0 }],
-              },
+              styles.switch,
+              { backgroundColor: switchValue ? theme.colors.primary : theme.colors.border }
             ]}
-          />
-        </TouchableOpacity>
-      ) : (
-        <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
-      )}
-    </TouchableOpacity>
-  );
+            onPress={() => onSwitchChange?.(!switchValue)}
+          >
+            <View
+              style={[
+                styles.switchThumb,
+                {
+                  backgroundColor: 'white',
+                  transform: [{ translateX: switchValue ? 20 : 0 }],
+                },
+              ]}
+            />
+          </TouchableOpacity>
+        ) : (
+          <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -322,8 +554,19 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onNavigateToNotificationSetti
 
         {/* Goals Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Your Goals</Text>
-          {goals.map(renderGoalCard)}
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Your Goals</Text>
+            <TouchableOpacity style={styles.addButton} onPress={handleAddGoal}>
+              <Ionicons name="add" size={20} color="white" />
+            </TouchableOpacity>
+          </View>
+          {isLoading ? (
+            <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
+              Loading goals...
+            </Text>
+          ) : (
+            goals.map(renderGoalCard)
+          )}
         </View>
 
         {/* Settings Section */}
@@ -372,12 +615,45 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onNavigateToNotificationSetti
         {/* Account Section */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Account</Text>
+          <Text style={[styles.settingSubtitle, { color: theme.colors.textSecondary }]}>
+            Debug: onLogout prop received: {typeof onLogout === 'function' ? 'YES' : 'NO'}
+          </Text>
+          
+          {/* Temporary test button */}
+          <TouchableOpacity
+            style={[styles.settingItem, { backgroundColor: theme.colors.surface }]}
+            onPress={() => {
+              console.log('Profile: Test logout button pressed');
+              handleLogout();
+            }}
+          >
+            <Text style={[styles.settingTitle, { color: theme.colors.text }]}>
+              TEST LOGOUT (Direct)
+            </Text>
+          </TouchableOpacity>
+          
+          {/* Supabase Test Button */}
+          <TouchableOpacity
+            style={[styles.settingItem, { backgroundColor: theme.colors.surface }]}
+            onPress={() => {
+              // Navigate to Supabase test component
+              console.log('Profile: Supabase test button pressed');
+              // You can add navigation here or import the component directly
+            }}
+          >
+            <Text style={[styles.settingTitle, { color: theme.colors.text }]}>
+              Test Supabase Integration
+            </Text>
+          </TouchableOpacity>
           
           {renderSettingItem(
             'Logout',
             'Sign out of your account',
             'log-out',
-            handleLogout
+            () => {
+              console.log('Profile: Logout button pressed via renderSettingItem');
+              handleLogout();
+            }
           )}
         </View>
 
@@ -396,6 +672,83 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onNavigateToNotificationSetti
           </View>
         )}
       </ScrollView>
+
+      {/* Add Goal Modal */}
+      <Modal
+        visible={showAddGoalModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowAddGoalModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Add New Goal</Text>
+            
+            <TextInput
+              style={[styles.modalInput, { 
+                backgroundColor: theme.colors.background,
+                borderColor: theme.colors.border,
+                color: theme.colors.text
+              }]}
+              placeholder="Goal title"
+              placeholderTextColor={theme.colors.textSecondary}
+              value={goalFormData.title}
+              onChangeText={(text) => setGoalFormData({ ...goalFormData, title: text })}
+            />
+            
+            <TextInput
+              style={[styles.modalInput, { 
+                backgroundColor: theme.colors.background,
+                borderColor: theme.colors.border,
+                color: theme.colors.text
+              }]}
+              placeholder="Description"
+              placeholderTextColor={theme.colors.textSecondary}
+              value={goalFormData.description}
+              onChangeText={(text) => setGoalFormData({ ...goalFormData, description: text })}
+            />
+            
+            <TextInput
+              style={[styles.modalInput, { 
+                backgroundColor: theme.colors.background,
+                borderColor: theme.colors.border,
+                color: theme.colors.text
+              }]}
+              placeholder="Goal value (e.g., 30 minutes)"
+              placeholderTextColor={theme.colors.textSecondary}
+              value={goalFormData.value}
+              onChangeText={(text) => setGoalFormData({ ...goalFormData, value: text })}
+            />
+            
+            <TextInput
+              style={[styles.modalInput, { 
+                backgroundColor: theme.colors.background,
+                borderColor: theme.colors.border,
+                color: theme.colors.text
+              }]}
+              placeholder="Target description"
+              placeholderTextColor={theme.colors.textSecondary}
+              value={goalFormData.target}
+              onChangeText={(text) => setGoalFormData({ ...goalFormData, target: text })}
+            />
+            
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: theme.colors.error || '#EF4444' }]}
+                onPress={() => setShowAddGoalModal(false)}
+              >
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: theme.colors.primary }]}
+                onPress={handleSaveNewGoal}
+              >
+                <Text style={styles.modalButtonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -459,10 +812,23 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 30,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 20,
+  },
+  addButton: {
+    backgroundColor: '#10B981',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   goalCard: {
     padding: 20,
@@ -479,7 +845,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(255, 107, 53, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -495,17 +860,39 @@ const styles = StyleSheet.create({
   goalDescription: {
     fontSize: 14,
   },
+  goalActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionButton: {
+    padding: 8,
+  },
+  goalContent: {
+    alignItems: 'center',
+  },
   goalValue: {
     fontSize: 24,
     fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  goalTarget: {
+    fontSize: 14,
     textAlign: 'center',
   },
   editContainer: {
     alignItems: 'center',
   },
+  editInput: {
+    width: '100%',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    fontSize: 16,
+    marginBottom: 16,
+  },
   editActions: {
     flexDirection: 'row',
-    marginTop: 16,
     gap: 12,
   },
   editActionButton: {
@@ -555,6 +942,54 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
+  },
+  loadingText: {
+    fontSize: 16,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '90%',
+    maxWidth: 400,
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#3D2A2A',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  modalInput: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    fontSize: 16,
+    marginBottom: 16,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

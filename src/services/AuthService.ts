@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AuthBackend from './AuthBackend';
+import { SupabaseService } from './SupabaseService';
 
 export interface User {
   id: string;
@@ -22,8 +23,11 @@ export class AuthService {
   private static readonly USER_KEY = 'rise_user';
   private static readonly TOKEN_KEY = 'rise_token';
   private static readonly CREDENTIALS_KEY = 'rise_credentials';
+  private supabaseService: SupabaseService;
 
-  private constructor() {}
+  private constructor() {
+    this.supabaseService = SupabaseService.getInstance();
+  }
 
   public static getInstance(): AuthService {
     if (!AuthService.instance) {
@@ -76,6 +80,36 @@ export class AuthService {
    */
   async login(email: string, password: string): Promise<User> {
     try {
+      console.log('AuthService: Login attempt for email:', email);
+      
+      // Try Supabase first if available
+      try {
+        const supabaseUser = await this.supabaseService.signIn(email, password);
+        console.log('AuthService: Supabase login successful:', supabaseUser);
+        
+        // Convert Supabase user to our User format
+        const user: User = {
+          id: supabaseUser.id,
+          email: supabaseUser.email,
+          name: supabaseUser.name,
+          startDate: supabaseUser.start_date,
+          currentDay: supabaseUser.current_day,
+          isOnboardingComplete: supabaseUser.is_onboarding_complete,
+          isAuthenticated: true,
+        };
+        
+        // Store user data
+        await this.storeUser(user);
+        await this.storeToken(this.generateToken(user));
+        await this.storeCredentials({ email, password });
+        
+        console.log('AuthService: User authenticated via Supabase:', user);
+        return user;
+      } catch (supabaseError) {
+        console.warn('Supabase login failed, falling back to mock auth:', supabaseError);
+        // Fall back to mock auth if Supabase fails
+      }
+
       // Prefer backend when configured
       if (AuthBackend.isEnabled()) {
         try {
@@ -89,6 +123,7 @@ export class AuthService {
           // Fall back to mock auth if backend fails
         }
       }
+      
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -140,6 +175,36 @@ export class AuthService {
    */
   async register(email: string, password: string): Promise<User> {
     try {
+      console.log('AuthService: Registration attempt for email:', email);
+      
+      // Try Supabase first if available
+      try {
+        const supabaseUser = await this.supabaseService.signUp(email, password);
+        console.log('AuthService: Supabase registration successful:', supabaseUser);
+        
+        // Convert Supabase user to our User format
+        const user: User = {
+          id: supabaseUser.id,
+          email: supabaseUser.email,
+          name: supabaseUser.name,
+          startDate: supabaseUser.start_date,
+          currentDay: supabaseUser.current_day,
+          isOnboardingComplete: supabaseUser.is_onboarding_complete,
+          isAuthenticated: true,
+        };
+        
+        // Store user data
+        await this.storeUser(user);
+        await this.storeToken(this.generateToken(user));
+        await this.storeCredentials({ email, password });
+        
+        console.log('AuthService: User registered via Supabase:', user);
+        return user;
+      } catch (supabaseError) {
+        console.warn('Supabase registration failed, falling back to mock auth:', supabaseError);
+        // Fall back to mock auth if Supabase fails
+      }
+
       if (AuthBackend.isEnabled()) {
         try {
           const user = await AuthBackend.signUp(email, password);
@@ -152,6 +217,7 @@ export class AuthService {
           // Fall back to mock auth if backend fails
         }
       }
+      
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -192,11 +258,34 @@ export class AuthService {
    */
   async clearUserData(): Promise<void> {
     try {
-      await AsyncStorage.multiRemove([
-        AuthService.USER_KEY,
-        AuthService.TOKEN_KEY,
-        AuthService.CREDENTIALS_KEY,
-      ]);
+      console.log('AuthService: clearUserData called');
+      
+      // Get current user before clearing to access email for user-specific keys
+      const currentUser = await this.getCurrentUser();
+      console.log('AuthService: Current user in clearUserData:', currentUser);
+      
+      // Clear basic auth keys
+      const basicKeys = [AuthService.USER_KEY, AuthService.TOKEN_KEY, AuthService.CREDENTIALS_KEY];
+      console.log('AuthService: Clearing basic auth keys:', basicKeys);
+      await AsyncStorage.multiRemove(basicKeys);
+      
+      // If we have a current user, also clear user-specific data keys
+      if (currentUser?.email) {
+        const userSpecificKeys = [
+          `goals_${currentUser.email}`,
+          `notes_${currentUser.email}`,
+          `calendarTasks_${currentUser.email}`,
+          `currentDay_${currentUser.email}`,
+          `lastMidnightCheck_${currentUser.email}`,
+          `dailyProgress_${currentUser.email}`,
+          `questionnaire_${currentUser.email}`,
+        ];
+        
+        console.log('AuthService: Clearing user-specific keys:', userSpecificKeys);
+        await AsyncStorage.multiRemove(userSpecificKeys);
+      }
+      
+      console.log('AuthService: All user data cleared successfully');
     } catch (error) {
       console.error('Clear user data error:', error);
       throw error;
@@ -207,12 +296,26 @@ export class AuthService {
    * Logout user
    */
   async logout(): Promise<void> {
+    console.log('AuthService: logout() called');
     try {
+      // Try Supabase logout first
+      try {
+        await this.supabaseService.signOut();
+        console.log('AuthService: Supabase logout successful');
+      } catch (supabaseError) {
+        console.warn('Supabase logout failed:', supabaseError);
+      }
+      
       if (AuthBackend.isEnabled()) {
+        console.log('AuthService: Backend enabled, calling signOut');
         await AuthBackend.signOut();
       }
-      // Clear stored data
+      
+      console.log('AuthService: Clearing stored data');
+      // Clear stored data (this now includes user-specific data)
       await this.clearUserData();
+      
+      console.log('AuthService: Logout completed successfully');
     } catch (error) {
       console.error('Logout error:', error);
       throw error;
@@ -224,18 +327,42 @@ export class AuthService {
    */
   async isAuthenticated(): Promise<boolean> {
     try {
-      if (AuthBackend.isEnabled()) {
-        const backendUser = await AuthBackend.getSessionUser();
-        if (backendUser) {
-          await this.storeUser(backendUser);
+      // Try Supabase first
+      try {
+        const isSupabaseAuth = await this.supabaseService.isAuthenticated();
+        if (isSupabaseAuth) {
+          console.log('AuthService: User authenticated via Supabase');
           return true;
         }
+      } catch (supabaseError) {
+        console.warn('Supabase auth check failed:', supabaseError);
       }
+      
+      if (AuthBackend.isEnabled()) {
+        try {
+          const backendUser = await AuthBackend.getSessionUser();
+          if (backendUser) {
+            await this.storeUser(backendUser);
+            return true;
+          }
+        } catch (backendError) {
+          console.warn('Backend auth check failed:', backendError);
+        }
+      }
+      
       const user = await this.getCurrentUser();
-      console.log('AuthService.isAuthenticated - user:', user);
+      console.log('AuthService: Checking stored user for authentication:', user);
+      
       // Check if we have a stored user with authentication status
-      const isAuth = !!(user && user.isAuthenticated);
-      console.log('AuthService.isAuthenticated - result:', isAuth);
+      const isAuth = !!(user && user.isAuthenticated === true);
+      console.log('AuthService: Authentication result from stored user:', isAuth);
+      
+      // If user exists but isAuthenticated is not explicitly true, return false
+      if (user && user.isAuthenticated !== true) {
+        console.log('User exists but is not authenticated, returning false');
+        return false;
+      }
+      
       return isAuth;
     } catch (error) {
       console.error('Authentication check error:', error);
@@ -248,6 +375,32 @@ export class AuthService {
    */
   async getCurrentUser(): Promise<User | null> {
     try {
+      // Try Supabase first
+      try {
+        const supabaseUser = await this.supabaseService.getCurrentUser();
+        if (supabaseUser) {
+          console.log('AuthService: Got current user from Supabase:', supabaseUser);
+          
+          // Convert Supabase user to our User format
+          const user: User = {
+            id: supabaseUser.id,
+            email: supabaseUser.email,
+            name: supabaseUser.name,
+            startDate: supabaseUser.start_date,
+            currentDay: supabaseUser.current_day,
+            isOnboardingComplete: supabaseUser.is_onboarding_complete,
+            isAuthenticated: true,
+          };
+          
+          // Store in local storage for consistency
+          await this.storeUser(user);
+          return user;
+        }
+      } catch (supabaseError) {
+        console.warn('Supabase getCurrentUser failed:', supabaseError);
+      }
+      
+      // Fallback to local storage
       const userData = await AsyncStorage.getItem(AuthService.USER_KEY);
       return userData ? JSON.parse(userData) : null;
     } catch (error) {
@@ -347,6 +500,19 @@ export class AuthService {
   }
 
   /**
+   * Get stored credentials
+   */
+  async getStoredCredentials(): Promise<AuthCredentials | null> {
+    try {
+      const credentialsData = await AsyncStorage.getItem(AuthService.CREDENTIALS_KEY);
+      return credentialsData ? JSON.parse(credentialsData) : null;
+    } catch (error) {
+      console.error('Get stored credentials error:', error);
+      return null;
+    }
+  }
+
+  /**
    * Generate a mock authentication token
    */
   private generateToken(user: User): string {
@@ -410,9 +576,6 @@ export class AuthService {
       // Update password
       this.mockPasswords[email.toLowerCase()] = newPassword;
 
-      // Update stored credentials
-      await this.storeCredentials({ email, password: newPassword });
-
       return true;
     } catch (error) {
       console.error('Change password error:', error);
@@ -421,7 +584,7 @@ export class AuthService {
   }
 
   /**
-   * Reset password (in a real app, this would send an email)
+   * Reset user password
    */
   async resetPassword(email: string): Promise<boolean> {
     try {
@@ -434,12 +597,78 @@ export class AuthService {
         throw new Error('User not found');
       }
 
-      // In a real app, this would send a password reset email
-      console.log(`Password reset email sent to ${email}`);
+      // Generate new password (in real app, send email)
+      const newPassword = `Reset${Date.now()}`;
+      this.mockPasswords[email.toLowerCase()] = newPassword;
 
+      console.log('Password reset successful. New password:', newPassword);
       return true;
     } catch (error) {
       console.error('Reset password error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update user profile
+   */
+  async updateProfile(userId: string, updates: Partial<User>): Promise<User> {
+    try {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Find user in mock database
+      const userIndex = this.mockUsers.findIndex(u => u.id === userId);
+      if (userIndex === -1) {
+        throw new Error('User not found');
+      }
+
+      // Update user
+      this.mockUsers[userIndex] = { ...this.mockUsers[userIndex], ...updates };
+
+      // Update stored user if it's the current user
+      const currentUser = await this.getCurrentUser();
+      if (currentUser && currentUser.id === userId) {
+        const updatedUser = { ...currentUser, ...updates };
+        await this.storeUser(updatedUser);
+        return updatedUser;
+      }
+
+      return this.mockUsers[userIndex];
+    } catch (error) {
+      console.error('Update profile error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete user account
+   */
+  async deleteAccount(userId: string): Promise<boolean> {
+    try {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Remove user from mock database
+      const userIndex = this.mockUsers.findIndex(u => u.id === userId);
+      if (userIndex === -1) {
+        throw new Error('User not found');
+      }
+
+      const user = this.mockUsers[userIndex];
+      
+      // Remove password
+      delete this.mockPasswords[user.email.toLowerCase()];
+      
+      // Remove user
+      this.mockUsers.splice(userIndex, 1);
+
+      // Clear stored data
+      await this.clearUserData();
+
+      return true;
+    } catch (error) {
+      console.error('Delete account error:', error);
       throw error;
     }
   }
@@ -454,19 +683,6 @@ export class AuthService {
     } catch (error) {
       console.error('Check admin status error:', error);
       return false;
-    }
-  }
-
-  /**
-   * Get stored authentication credentials
-   */
-  async getStoredCredentials(): Promise<AuthCredentials | null> {
-    try {
-      const credentialsData = await AsyncStorage.getItem(AuthService.CREDENTIALS_KEY);
-      return credentialsData ? JSON.parse(credentialsData) : null;
-    } catch (error) {
-      console.error('Get stored credentials error:', error);
-      return null;
     }
   }
 
@@ -584,6 +800,4 @@ export class AuthService {
       throw error;
     }
   }
-}
-
-export default AuthService; 
+} 

@@ -13,6 +13,8 @@ import { useTheme } from '../context/ThemeContext';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
 import { loadQuestionnaire } from '../store/slices/questionnaireSlice';
+import { loadGoals } from '../store/slices/goalsSlice';
+import { useClock } from '../hooks/useClock';
 import { 
   loadDailyProgress, 
   saveDailyProgress, 
@@ -60,17 +62,50 @@ const Dashboard: React.FC<DashboardProps> = ({
   
   // Get progress data from Redux store
   const progress = useSelector((state: RootState) => state.progress);
-  const { dailyProgress, currentDay, totalDays } = progress;
+  const { dailyProgress, totalDays } = progress;
+  
+  // Get goals data from Redux store
+  const { goals } = useSelector((state: RootState) => state.goals);
+  
+  // Use the clock hook for automatic day progression
+  const { 
+    currentDay, 
+    isNewDay, 
+    getCurrentTime, 
+    getCurrentDate, 
+    getFormattedTimeUntilMidnight,
+    isCurrentlyMidnight 
+  } = useClock();
   
   // Create dynamic tasks based on user's actual goals
   const [tasks, setTasks] = useState<Task[]>([]);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [currentTime, setCurrentTime] = useState(getCurrentTime());
+  const [timeUntilMidnight, setTimeUntilMidnight] = useState(getFormattedTimeUntilMidnight());
+
+  // Update time every second
+  useEffect(() => {
+    const timeInterval = setInterval(() => {
+      setCurrentTime(getCurrentTime());
+      setTimeUntilMidnight(getFormattedTimeUntilMidnight());
+    }, 1000);
+
+    return () => clearInterval(timeInterval);
+  }, [getCurrentTime, getFormattedTimeUntilMidnight]);
 
   // Load questionnaire data when component mounts
   useEffect(() => {
     console.log('Dashboard: Loading questionnaire data...');
     dispatch(loadQuestionnaire()).catch(error => {
       console.error('Dashboard: Failed to load questionnaire:', error);
+    });
+  }, [dispatch]);
+
+  // Load goals data when component mounts
+  useEffect(() => {
+    console.log('Dashboard: Loading goals data...');
+    dispatch(loadGoals()).catch(error => {
+      console.error('Dashboard: Failed to load goals:', error);
     });
   }, [dispatch]);
 
@@ -82,12 +117,53 @@ const Dashboard: React.FC<DashboardProps> = ({
     });
   }, [dispatch]);
 
-  // Update tasks when questionnaire data changes
+  // Handle new day celebration
   useEffect(() => {
-    console.log('Dashboard: Questionnaire data changed:', questionnaire);
-    if (questionnaire) {
-      console.log('Dashboard: Creating dynamic tasks with data:', questionnaire);
-      const dynamicTasks: Task[] = [
+    if (isNewDay) {
+      console.log('New day detected! Day', currentDay);
+      
+      // Reset tasks for the new day
+      setTasks(prevTasks => 
+        prevTasks.map(task => ({ ...task, isCompleted: false }))
+      );
+      
+      // Show celebration
+      setShowCelebration(true);
+      
+      // Hide celebration after 5 seconds
+      const timer = setTimeout(() => {
+        setShowCelebration(false);
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isNewDay, currentDay]);
+
+  // Update tasks when goals data changes
+  useEffect(() => {
+    console.log('Dashboard: Goals data changed:', goals);
+    if (goals && goals.length > 0) {
+      console.log('Dashboard: Creating dynamic tasks with goals:', goals);
+      const dynamicTasks: Task[] = goals
+        .filter(goal => goal.isActive)
+        .map((goal, index) => ({
+          id: goal.id,
+          title: goal.title,
+          category: goal.category,
+          isCompleted: false,
+          difficulty: 3, // Default difficulty
+          streak: 0,
+          repeat: 'Everyday',
+          description: goal.description,
+          image: getCategoryImage(goal.category),
+        }));
+      
+      console.log('Dashboard: Setting dynamic tasks from goals:', dynamicTasks);
+      setTasks(dynamicTasks);
+    } else if (questionnaire) {
+      console.log('Dashboard: No goals data, using questionnaire data');
+      // Fallback to questionnaire-based tasks when no goals are available
+      const questionnaireTasks: Task[] = [
         {
           id: '1',
           title: `Wake up at ${questionnaire.wakeUpTime || '7AM'}`,
@@ -101,7 +177,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         },
         {
           id: '2',
-          title: 'Drink 2L water',
+          title: `Drink ${questionnaire.waterGoal || '2L'} water`,
           category: 'water',
           isCompleted: false,
           difficulty: 1,
@@ -123,7 +199,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         },
         {
           id: '4',
-          title: 'Exercise 30 minutes',
+          title: `Exercise ${questionnaire.exerciseGoal || '30'} minutes`,
           category: 'exercise',
           isCompleted: false,
           difficulty: 4,
@@ -134,7 +210,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         },
         {
           id: '5',
-          title: 'Meditate 10 minutes',
+          title: `Meditate ${questionnaire.mindGoal || '10'} minutes`,
           category: 'mind',
           isCompleted: false,
           difficulty: 2,
@@ -155,11 +231,10 @@ const Dashboard: React.FC<DashboardProps> = ({
           image: 'book'
         },
       ];
-      console.log('Dashboard: Setting dynamic tasks:', dynamicTasks);
-      setTasks(dynamicTasks);
+      setTasks(questionnaireTasks);
     } else if (!isLoading) {
-      console.log('Dashboard: No questionnaire data, setting fallback tasks');
-      // Fallback tasks when no questionnaire data is available
+      console.log('Dashboard: No data available, setting fallback tasks');
+      // Fallback tasks when no data is available
       const fallbackTasks: Task[] = [
         {
           id: '1',
@@ -230,7 +305,29 @@ const Dashboard: React.FC<DashboardProps> = ({
       ];
       setTasks(fallbackTasks);
     }
-  }, [questionnaire, isLoading]);
+  }, [goals, questionnaire, isLoading]);
+
+  // Helper function to get category image
+  const getCategoryImage = (category: string) => {
+    switch (category) {
+      case 'sleep':
+        return 'sunrise';
+      case 'water':
+        return 'water';
+      case 'exercise':
+        return 'exercise';
+      case 'mind':
+        return 'meditation';
+      case 'shower':
+        return 'shower';
+      case 'screenTime':
+        return 'phone';
+      case 'custom':
+        return 'star';
+      default:
+        return 'checkmark-circle';
+    }
+  };
 
   // Sync tasks with progress data
   useEffect(() => {
@@ -431,7 +528,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     ];
     
     const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
-    const randomTip = tips[Math.floor(Math.random() * tips.length)];
+          const randomTip = tips[Math.floor(Math.random() * tips.length)];
     
     return { quote: randomQuote, tip: randomTip };
   };
@@ -450,6 +547,10 @@ const Dashboard: React.FC<DashboardProps> = ({
         return 'brain';
       case 'shower':
         return 'water-outline';
+      case 'screenTime':
+        return 'phone-portrait';
+      case 'custom':
+        return 'star';
       default:
         return 'checkmark-circle';
     }
@@ -467,6 +568,10 @@ const Dashboard: React.FC<DashboardProps> = ({
         return '#8B5CF6';
       case 'shower':
         return '#3B82F6';
+      case 'screenTime':
+        return '#EF4444';
+      case 'custom':
+        return '#8B5CF6';
       default:
         return theme.colors.primary;
     }
@@ -658,10 +763,51 @@ const Dashboard: React.FC<DashboardProps> = ({
         <View style={styles.celebrationContainer}>
           <Text style={styles.celebrationText}>🎉</Text>
           <Text style={[styles.celebrationMessage, { color: theme.colors.primary }]}>
-            Amazing! All tasks completed!
+            {isNewDay ? 'New day started!' : 'Amazing! All tasks completed!'}
           </Text>
           <Text style={[styles.celebrationSubtext, { color: theme.colors.textSecondary }]}>
-            Advancing to Day {currentDay + 1} in 3 seconds...
+            {isNewDay ? `Welcome to Day ${currentDay}!` : 'Advancing to next day...'}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+
+  const renderClockSection = () => (
+    <View style={[
+      styles.clockSection,
+      { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }
+    ]}>
+      <View style={styles.clockHeader}>
+        <Ionicons name="time" size={24} color={theme.colors.primary} />
+        <Text style={[styles.clockTitle, { color: theme.colors.text }]}>
+          Local Time
+        </Text>
+      </View>
+      
+      <View style={styles.clockContent}>
+        <Text style={[styles.currentTime, { color: theme.colors.primary }]}>
+          {currentTime}
+        </Text>
+        <Text style={[styles.currentDate, { color: theme.colors.textSecondary }]}>
+          {getCurrentDate()}
+        </Text>
+      </View>
+      
+      <View style={styles.midnightCountdown}>
+        <Text style={[styles.countdownLabel, { color: theme.colors.textSecondary }]}>
+          Next day in:
+        </Text>
+        <Text style={[styles.countdownTime, { color: theme.colors.primary }]}>
+          {timeUntilMidnight}
+        </Text>
+      </View>
+      
+      {isCurrentlyMidnight() && (
+        <View style={styles.midnightIndicator}>
+          <Text style={styles.midnightText}>🕛</Text>
+          <Text style={[styles.midnightMessage, { color: theme.colors.primary }]}>
+            It's midnight! New day starting...
           </Text>
         </View>
       )}
@@ -699,6 +845,9 @@ const Dashboard: React.FC<DashboardProps> = ({
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Character Section */}
         {renderCharacter()}
+
+        {/* Clock Section */}
+        {renderClockSection()}
 
         {/* Progress Card */}
         {renderProgressCard()}
@@ -880,6 +1029,65 @@ const styles = StyleSheet.create({
   },
   characterText: {
     fontSize: 14,
+    textAlign: 'center',
+  },
+  clockSection: {
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 24,
+  },
+  clockHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  clockTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginLeft: 12,
+  },
+  clockContent: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  currentTime: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  currentDate: {
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  midnightCountdown: {
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    borderRadius: 12,
+  },
+  countdownLabel: {
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  countdownTime: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  midnightIndicator: {
+    alignItems: 'center',
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: 12,
+  },
+  midnightText: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+  midnightMessage: {
+    fontSize: 16,
+    fontWeight: '600',
     textAlign: 'center',
   },
   progressCard: {
