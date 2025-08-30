@@ -9,7 +9,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { useTheme } from '../contexts/ThemeContext';
+import { useTheme } from '../context/ThemeContext';
 import { OneSignalService } from '../services/OneSignalService';
 import { MotivationalQuotesService } from '../services/MotivationalQuotesService';
 
