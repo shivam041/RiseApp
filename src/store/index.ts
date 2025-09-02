@@ -20,4 +20,8 @@ export const store = configureStore({
 });
 
 export type RootState = ReturnType<typeof store.getState>;
-export type AppDispatch = typeof store.dispatch; 
+export type AppDispatch = typeof store.dispatch;
+
+// Typed hooks for use throughout the app
+export { useDispatch, useSelector } from 'react-redux';
+export type { TypedUseSelectorHook } from 'react-redux'; 

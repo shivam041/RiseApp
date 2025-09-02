@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Alert, Platform } from 'react-native';
 import { Provider } from 'react-redux';
 import { store } from './src/store';
-import { ThemeProvider } from './src/context/ThemeContext';
-import { useDispatch, useSelector } from 'react-redux';
-import { RootState } from './src/store';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
+import { useDispatch, useSelector } from './src/store';
+import { RootState, AppDispatch } from './src/store';
 import { saveUser, loadUser, clearUser } from './src/store/slices/userSlice';
 import { loadDailyProgress, clearProgress } from './src/store/slices/progressSlice';
 import { loadQuestionnaire, clearQuestionnaire } from './src/store/slices/questionnaireSlice';
@@ -13,12 +13,15 @@ import { loadNotes, clearNotes } from './src/store/slices/notesSlice';
 import { loadCalendarTasks, clearCalendarTasks } from './src/store/slices/calendarSlice';
 import { loadDayProgression, clearDayProgression } from './src/store/slices/dayProgressionSlice';
 import { AuthService } from './src/services/AuthService';
+import { BackendAuthService } from './src/services/BackendAuthService';
 import { OneSignalService } from './src/services/OneSignalService';
 import { MotivationalQuotesService } from './src/services/MotivationalQuotesService';
 
 // Import components
 import Login from './src/components/Login';
 import Register from './src/components/Register';
+import BackendLogin from './src/components/BackendLogin';
+import BackendRegister from './src/components/BackendRegister';
 import Dashboard from './src/components/Dashboard';
 import Profile from './src/components/Profile';
 import Calendar from './src/components/Calendar';
@@ -28,6 +31,7 @@ import NotificationSettings from './src/components/NotificationSettings';
 import Stats from './src/components/Stats';
 import AdminPanel from './src/components/AdminPanel';
 import BackendAdminPanel from './src/components/BackendAdminPanel';
+import BackendUserManagement from './src/components/BackendUserManagement';
 
 // Import types
 import { User } from './src/services/AuthService';
@@ -79,10 +83,12 @@ const initializeServices = async () => {
 };
 
 const AppContent: React.FC = () => {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const user = useSelector((state: RootState) => state.user.user);
-  const [currentScreen, setCurrentScreen] = useState<'dashboard' | 'profile' | 'calendar' | 'notes' | 'notificationSettings' | 'stats' | 'adminPanel' | 'backendAdmin'>('dashboard');
+  const { theme } = useTheme();
+  const [currentScreen, setCurrentScreen] = useState<'dashboard' | 'profile' | 'calendar' | 'notes' | 'notificationSettings' | 'stats' | 'adminPanel' | 'backendAdmin' | 'backendUserManagement'>('dashboard');
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [useBackendAuth, setUseBackendAuth] = useState(true); // Use backend auth by default
   const [isLoading, setIsLoading] = useState(true);
 
   // Derive authentication state from user state
@@ -430,8 +436,79 @@ const AppContent: React.FC = () => {
     setCurrentScreen('backendAdmin');
   };
 
+  const handleNavigateToUserManagement = () => {
+    setCurrentScreen('backendUserManagement');
+  };
+
   const handleBackToDashboard = () => {
     setCurrentScreen('dashboard');
+  };
+
+  // Backend Authentication Handlers
+  const handleBackendLogin = async (backendUser: any) => {
+    try {
+      console.log('Backend login successful:', backendUser);
+      
+      // Convert backend user to frontend user format
+      const frontendUser = {
+        ...backendUser,
+        isAuthenticated: true,
+      };
+
+      // Save user to Redux store
+      await dispatch(saveUser(frontendUser));
+
+      // Load all user data
+      await Promise.all([
+        dispatch(loadDailyProgress()),
+        dispatch(loadQuestionnaire()),
+        dispatch(loadGoals()),
+        dispatch(loadNotes()),
+        dispatch(loadCalendarTasks()),
+        dispatch(loadDayProgression()),
+      ]);
+
+      // Navigate based on onboarding status
+      if (frontendUser.isOnboardingComplete) {
+        setCurrentScreen('dashboard');
+      } else {
+        setCurrentScreen('dashboard'); // You can change this to 'onboarding' if needed
+      }
+    } catch (error) {
+      console.error('Error handling backend login:', error);
+      Alert.alert('Error', 'Failed to complete login process');
+    }
+  };
+
+  const handleBackendRegister = async (backendUser: any) => {
+    try {
+      console.log('Backend registration successful:', backendUser);
+      
+      // Convert backend user to frontend user format
+      const frontendUser = {
+        ...backendUser,
+        isAuthenticated: true,
+      };
+
+      // Save user to Redux store
+      await dispatch(saveUser(frontendUser));
+
+      // Load all user data
+      await Promise.all([
+        dispatch(loadDailyProgress()),
+        dispatch(loadQuestionnaire()),
+        dispatch(loadGoals()),
+        dispatch(loadNotes()),
+        dispatch(loadCalendarTasks()),
+        dispatch(loadDayProgression()),
+      ]);
+
+      // New users go to onboarding
+      setCurrentScreen('dashboard'); // You can change this to 'onboarding' if needed
+    } catch (error) {
+      console.error('Error handling backend registration:', error);
+      Alert.alert('Error', 'Failed to complete registration process');
+    }
   };
 
   if (isLoading) {
@@ -450,10 +527,20 @@ const AppContent: React.FC = () => {
   // Show login/register if not authenticated
   if (!isAuthenticated) {
     console.log('App: User not authenticated, showing login/register');
-    if (authMode === 'login') {
-      return <Login onLogin={handleLogin} onRegister={() => setAuthMode('register')} />;
+    if (useBackendAuth) {
+      // Use backend authentication
+      if (authMode === 'login') {
+        return <BackendLogin onLogin={handleBackendLogin} onRegister={() => setAuthMode('register')} />;
+      } else {
+        return <BackendRegister onRegister={handleBackendRegister} onLogin={() => setAuthMode('login')} />;
+      }
     } else {
-      return <Register onRegister={handleRegister} onBackToLogin={() => setAuthMode('login')} />;
+      // Use local authentication (fallback)
+      if (authMode === 'login') {
+        return <Login onLogin={handleLogin} onRegister={() => setAuthMode('register')} />;
+      } else {
+        return <Register onRegister={handleRegister} onBackToLogin={() => setAuthMode('login')} />;
+      }
     }
   }
 
@@ -505,6 +592,13 @@ const AppContent: React.FC = () => {
       return (
         <BackendAdminPanel 
           onBack={handleBackToDashboard}
+          onNavigateToUserManagement={handleNavigateToUserManagement}
+        />
+      );
+    case 'backendUserManagement':
+      return (
+        <BackendUserManagement 
+          onBack={() => setCurrentScreen('backendAdmin')}
         />
       );
     case 'calendar':

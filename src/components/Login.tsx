@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
-import AuthService from '../services/AuthService';
+import { AuthService } from '../services/AuthService';
 
 const { width, height } = Dimensions.get('window');
 

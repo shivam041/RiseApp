@@ -40,6 +40,20 @@ export class OneSignalService {
       return;
     }
 
+    // Only initialize on web platform
+    if (Platform.OS !== 'web') {
+      console.log('OneSignal: Not initializing on non-web platform');
+      return;
+    }
+
+    // Check if we're in development (localhost) or production
+    const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    
+    if (isDevelopment) {
+      console.log('OneSignal: Skipping initialization in development mode');
+      return;
+    }
+
     try {
       console.log('Initializing OneSignal...');
       

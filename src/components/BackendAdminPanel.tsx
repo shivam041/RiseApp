@@ -10,13 +10,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
-import AuthService from '../services/AuthService';
+import { AuthService } from '../services/AuthService';
 
 interface BackendAdminPanelProps {
   onBack: () => void;
+  onNavigateToUserManagement?: () => void;
 }
 
-const BackendAdminPanel: React.FC<BackendAdminPanelProps> = ({ onBack }) => {
+const BackendAdminPanel: React.FC<BackendAdminPanelProps> = ({ onBack, onNavigateToUserManagement }) => {
   const { theme } = useTheme();
   const [users, setUsers] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
@@ -305,6 +306,17 @@ const BackendAdminPanel: React.FC<BackendAdminPanelProps> = ({ onBack }) => {
         {/* Stats Section */}
         {renderStats()}
 
+        {/* User Management Button */}
+        {onNavigateToUserManagement && (
+          <TouchableOpacity
+            style={[styles.userManagementButton, { backgroundColor: theme.colors.primary }]}
+            onPress={onNavigateToUserManagement}
+          >
+            <Ionicons name="people" size={20} color="white" />
+            <Text style={styles.userManagementButtonText}>Manage Users</Text>
+          </TouchableOpacity>
+        )}
+
         {/* Search Section */}
         <View style={styles.searchContainer}>
           <View style={[styles.searchInput, { backgroundColor: theme.colors.surface }]}>
@@ -385,6 +397,21 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderWidth: 1,
     borderColor: '#3D2A2A',
+  },
+  userManagementButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+  userManagementButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   statsTitle: {
     fontSize: 18,

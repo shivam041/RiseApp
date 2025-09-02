@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
-import AuthService from '../services/AuthService';
+import { AuthService } from '../services/AuthService';
 
 interface AdminPanelProps {
   onBack: () => void;

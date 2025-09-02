@@ -1,11 +1,17 @@
 -- Rise App Database Schema
 -- Run this in your Supabase SQL Editor
+-- 
+-- This schema is safe to run multiple times - it will update existing tables
+-- and policies without errors. All DROP IF EXISTS statements ensure no conflicts.
 
 -- Create users table
 CREATE TABLE IF NOT EXISTS users (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
   name TEXT,
+  password_hash TEXT NOT NULL,
+  is_active BOOLEAN DEFAULT TRUE,
+  is_admin BOOLEAN DEFAULT FALSE,
   start_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   current_day INTEGER DEFAULT 1,
   is_onboarding_complete BOOLEAN DEFAULT FALSE,
@@ -96,64 +102,83 @@ ALTER TABLE daily_progress ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies
 -- Users can only access their own data
+DROP POLICY IF EXISTS "Users can view own profile" ON users;
 CREATE POLICY "Users can view own profile" ON users
   FOR SELECT USING (auth.uid()::text = id::text);
 
+DROP POLICY IF EXISTS "Users can update own profile" ON users;
 CREATE POLICY "Users can update own profile" ON users
   FOR UPDATE USING (auth.uid()::text = id::text);
 
+DROP POLICY IF EXISTS "Users can insert own profile" ON users;
 CREATE POLICY "Users can insert own profile" ON users
   FOR INSERT WITH CHECK (auth.uid()::text = id::text);
 
 -- Goals policies
+DROP POLICY IF EXISTS "Users can view own goals" ON goals;
 CREATE POLICY "Users can view own goals" ON goals
   FOR SELECT USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can insert own goals" ON goals;
 CREATE POLICY "Users can insert own goals" ON goals
   FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can update own goals" ON goals;
 CREATE POLICY "Users can update own goals" ON goals
   FOR UPDATE USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can delete own goals" ON goals;
 CREATE POLICY "Users can delete own goals" ON goals
   FOR DELETE USING (auth.uid()::text = user_id::text);
 
 -- Notes policies
+DROP POLICY IF EXISTS "Users can view own notes" ON notes;
 CREATE POLICY "Users can view own notes" ON notes
   FOR SELECT USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can insert own notes" ON notes;
 CREATE POLICY "Users can insert own notes" ON notes
   FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can update own notes" ON notes;
 CREATE POLICY "Users can update own notes" ON notes
   FOR UPDATE USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can delete own notes" ON notes;
 CREATE POLICY "Users can delete own notes" ON notes
   FOR DELETE USING (auth.uid()::text = user_id::text);
 
 -- Calendar tasks policies
+DROP POLICY IF EXISTS "Users can view own calendar tasks" ON calendar_tasks;
 CREATE POLICY "Users can view own calendar tasks" ON calendar_tasks
   FOR SELECT USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can insert own calendar tasks" ON calendar_tasks;
 CREATE POLICY "Users can insert own calendar tasks" ON calendar_tasks
   FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can update own calendar tasks" ON calendar_tasks;
 CREATE POLICY "Users can update own calendar tasks" ON calendar_tasks
   FOR UPDATE USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can delete own calendar tasks" ON calendar_tasks;
 CREATE POLICY "Users can delete own calendar tasks" ON calendar_tasks
   FOR DELETE USING (auth.uid()::text = user_id::text);
 
 -- Daily progress policies
+DROP POLICY IF EXISTS "Users can view own daily progress" ON daily_progress;
 CREATE POLICY "Users can view own daily progress" ON daily_progress
   FOR SELECT USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can insert own daily progress" ON daily_progress;
 CREATE POLICY "Users can insert own daily progress" ON daily_progress
   FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can update own daily progress" ON daily_progress;
 CREATE POLICY "Users can update own daily progress" ON daily_progress
   FOR UPDATE USING (auth.uid()::text = user_id::text);
 
+DROP POLICY IF EXISTS "Users can delete own daily progress" ON daily_progress;
 CREATE POLICY "Users can delete own daily progress" ON daily_progress
   FOR DELETE USING (auth.uid()::text = user_id::text);
 
@@ -167,18 +192,23 @@ END;
 $$ language 'plpgsql';
 
 -- Create triggers for updated_at
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_goals_updated_at ON goals;
 CREATE TRIGGER update_goals_updated_at BEFORE UPDATE ON goals
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_notes_updated_at ON notes;
 CREATE TRIGGER update_notes_updated_at BEFORE UPDATE ON notes
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_calendar_tasks_updated_at ON calendar_tasks;
 CREATE TRIGGER update_calendar_tasks_updated_at BEFORE UPDATE ON calendar_tasks
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_daily_progress_updated_at ON daily_progress;
 CREATE TRIGGER update_daily_progress_updated_at BEFORE UPDATE ON daily_progress
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
