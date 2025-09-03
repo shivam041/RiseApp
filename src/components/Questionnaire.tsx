@@ -193,6 +193,7 @@ const Questionnaire: React.FC<QuestionnaireProps> = ({ onComplete }) => {
         mindGoal: goals.find(g => g.id === 'mind')?.isGoal ? 'Meditate for 10 minutes daily' : '',
         screenTimeGoal: goals.find(g => g.id === 'screenTime')?.isGoal ? 'Limit screen time to 4 hours daily' : '',
         showerGoal: goals.find(g => g.id === 'shower')?.isGoal ? 'Take cold showers for 2 minutes' : '',
+        extraTasks: [], // Will be populated from onboarding data
       };
       
       // Generate 66-day program

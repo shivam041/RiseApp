@@ -231,6 +231,23 @@ const Dashboard: React.FC<DashboardProps> = ({
           image: 'book'
         },
       ];
+
+      // Add extra tasks if they exist
+      if (questionnaire.extraTasks && questionnaire.extraTasks.length > 0) {
+        const extraTasks: Task[] = questionnaire.extraTasks.map((task, index) => ({
+          id: `extra-${index + 1}`,
+          title: task,
+          category: 'custom',
+          isCompleted: false,
+          difficulty: 3,
+          streak: 0,
+          repeat: 'Everyday',
+          description: `Custom goal: ${task}`,
+          image: 'star'
+        }));
+        questionnaireTasks.push(...extraTasks);
+      }
+
       setTasks(questionnaireTasks);
     } else if (!isLoading) {
       console.log('Dashboard: No data available, setting fallback tasks');

@@ -7,7 +7,7 @@ import { useDispatch, useSelector } from './src/store';
 import { RootState, AppDispatch } from './src/store';
 import { saveUser, loadUser, clearUser } from './src/store/slices/userSlice';
 import { loadDailyProgress, clearProgress } from './src/store/slices/progressSlice';
-import { loadQuestionnaire, clearQuestionnaire } from './src/store/slices/questionnaireSlice';
+import { loadQuestionnaire, saveQuestionnaire, clearQuestionnaire } from './src/store/slices/questionnaireSlice';
 import { loadGoals, clearGoals } from './src/store/slices/goalsSlice';
 import { loadNotes, clearNotes } from './src/store/slices/notesSlice';
 import { loadCalendarTasks, clearCalendarTasks } from './src/store/slices/calendarSlice';
@@ -273,11 +273,12 @@ const AppContent: React.FC = () => {
         stressLevel: 5,
         energyLevel: 5,
         motivationLevel: 5,
+        extraTasks: userData.extraTasks || [], // Include extra tasks from onboarding
       };
       
       console.log('App: Saving questionnaire data:', questionnaireData);
-      await dispatch(loadQuestionnaire());
-      console.log('App: Questionnaire data loaded');
+      await dispatch(saveQuestionnaire(questionnaireData));
+      console.log('App: Questionnaire data saved');
       
       // Set up smart notifications based on user goals
       const oneSignalService = OneSignalService.getInstance();

@@ -24,6 +24,7 @@ export interface QuestionnaireResponse {
   stressLevel: number; // 1-10
   energyLevel: number; // 1-10
   motivationLevel: number; // 1-10
+  extraTasks?: string[]; // Extra tasks selected during onboarding
 }
 
 export type HabitCategory = 'sleep' | 'water' | 'exercise' | 'mind' | 'screenTime' | 'shower';

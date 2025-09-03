@@ -657,6 +657,185 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onGoHome }) => {
     );
   };
 
+  const renderRankSystem = () => {
+    const ranks = [
+      { name: 'Bronze V', color: '#CD7F32', size: 60, y: 0 },
+      { name: 'Bronze IV', color: '#CD7F32', size: 65, y: -10 },
+      { name: 'Bronze III', color: '#CD7F32', size: 70, y: -20 },
+      { name: 'Bronze II', color: '#CD7F32', size: 75, y: -30 },
+      { name: 'Bronze I', color: '#CD7F32', size: 80, y: -40 },
+      { name: 'Silver V', color: '#C0C0C0', size: 85, y: -50 },
+      { name: 'Silver IV', color: '#C0C0C0', size: 90, y: -60 },
+      { name: 'Silver III', color: '#C0C0C0', size: 95, y: -70 },
+      { name: 'Silver II', color: '#C0C0C0', size: 100, y: -80 },
+      { name: 'Silver I', color: '#C0C0C0', size: 105, y: -90 },
+      { name: 'Gold V', color: '#FFD700', size: 110, y: -100 },
+      { name: 'Gold IV', color: '#FFD700', size: 115, y: -110 },
+      { name: 'Gold III', color: '#FFD700', size: 120, y: -120 },
+      { name: 'Gold II', color: '#FFD700', size: 125, y: -130 },
+      { name: 'Gold I', color: '#FFD700', size: 130, y: -140 },
+      { name: 'Platinum V', color: '#E5E4E2', size: 135, y: -150 },
+      { name: 'Platinum IV', color: '#E5E4E2', size: 140, y: -160 },
+      { name: 'Platinum III', color: '#E5E4E2', size: 145, y: -170 },
+      { name: 'Platinum II', color: '#E5E4E2', size: 150, y: -180 },
+      { name: 'Platinum I', color: '#E5E4E2', size: 155, y: -190 },
+      { name: 'Diamond V', color: '#B9F2FF', size: 160, y: -200 },
+      { name: 'Diamond IV', color: '#B9F2FF', size: 165, y: -210 },
+      { name: 'Diamond III', color: '#B9F2FF', size: 170, y: -220 },
+      { name: 'Diamond II', color: '#B9F2FF', size: 175, y: -230 },
+      { name: 'Diamond I', color: '#B9F2FF', size: 180, y: -240 },
+      { name: 'Legend V', color: '#FF6B35', size: 185, y: -250 },
+      { name: 'Legend IV', color: '#FF6B35', size: 190, y: -260 },
+      { name: 'Legend III', color: '#FF6B35', size: 195, y: -270 },
+      { name: 'Legend II', color: '#FF6B35', size: 200, y: -280 },
+      { name: 'Legend I', color: '#FF6B35', size: 205, y: -290 },
+    ];
+
+    return (
+      <View style={styles.rankSystemContainer}>
+        <Text style={[styles.rankSystemTitle, { color: theme.colors.text }]}>
+          Your Journey to Legend
+        </Text>
+        <View style={styles.rankLadder}>
+          {ranks.map((rank, index) => (
+            <View
+              key={rank.name}
+              style={[
+                styles.rankBadge,
+                {
+                  width: rank.size,
+                  height: rank.size,
+                  backgroundColor: rank.color,
+                  transform: [{ translateY: rank.y }],
+                  opacity: index === 0 ? 1 : 0.3, // Highlight Bronze V as current
+                }
+              ]}
+            >
+              <Text style={styles.rankText}>{rank.name}</Text>
+            </View>
+          ))}
+        </View>
+        <Text style={[styles.rankDescription, { color: theme.colors.textSecondary }]}>
+          Complete tasks daily to climb the ranks and unlock your potential!
+        </Text>
+      </View>
+    );
+  };
+
+  const renderNotificationSettings = () => (
+    <View style={styles.notificationContainer}>
+      <View style={styles.notificationIcon}>
+        <Ionicons name="notifications" size={48} color={theme.colors.primary} />
+      </View>
+      <Text style={[styles.notificationTitle, { color: theme.colors.text }]}>
+        Stay Motivated
+      </Text>
+      <Text style={[styles.notificationDescription, { color: theme.colors.textSecondary }]}>
+        We'll send you gentle reminders and motivational messages to keep you on track with your goals.
+      </Text>
+      <View style={styles.notificationFeatures}>
+        <View style={styles.featureItem}>
+          <Ionicons name="sunny" size={20} color={theme.colors.primary} />
+          <Text style={[styles.featureText, { color: theme.colors.text }]}>Morning motivation</Text>
+        </View>
+        <View style={styles.featureItem}>
+          <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />
+          <Text style={[styles.featureText, { color: theme.colors.text }]}>Task reminders</Text>
+        </View>
+        <View style={styles.featureItem}>
+          <Ionicons name="trophy" size={20} color={theme.colors.primary} />
+          <Text style={[styles.featureText, { color: theme.colors.text }]}>Achievement celebrations</Text>
+        </View>
+      </View>
+    </View>
+  );
+
+  const renderScientificResearch = () => (
+    <View style={styles.researchContainer}>
+      <View style={styles.researchIcon}>
+        <Ionicons name="flask" size={48} color={theme.colors.primary} />
+      </View>
+      <Text style={[styles.researchTitle, { color: theme.colors.text }]}>
+        Science-Backed Transformation
+      </Text>
+      <View style={styles.researchStats}>
+        <View style={styles.statItem}>
+          <Text style={[styles.statNumber, { color: theme.colors.primary }]}>66</Text>
+          <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Days to form habits</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={[styles.statNumber, { color: theme.colors.primary }]}>21</Text>
+          <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Days to see change</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={[styles.statNumber, { color: theme.colors.primary }]}>90</Text>
+          <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Days to mastery</Text>
+        </View>
+      </View>
+      <Text style={[styles.researchDescription, { color: theme.colors.textSecondary }]}>
+        Based on research from University College London, consistent daily practice creates lasting neural pathways that transform your life.
+      </Text>
+    </View>
+  );
+
+  const renderPenaltySystem = () => (
+    <View style={styles.penaltyContainer}>
+      <View style={styles.penaltyIcon}>
+        <Ionicons name="shield-checkmark" size={48} color={theme.colors.primary} />
+      </View>
+      <Text style={[styles.penaltyTitle, { color: theme.colors.text }]}>
+        Discipline Through Design
+      </Text>
+      <View style={styles.penaltyFeatures}>
+        <View style={styles.penaltyFeature}>
+          <Ionicons name="trending-up" size={24} color="#10B981" />
+          <View style={styles.penaltyFeatureText}>
+            <Text style={[styles.penaltyFeatureTitle, { color: theme.colors.text }]}>Progress Tracking</Text>
+            <Text style={[styles.penaltyFeatureDesc, { color: theme.colors.textSecondary }]}>Visual progress bars and streaks</Text>
+          </View>
+        </View>
+        <View style={styles.penaltyFeature}>
+          <Ionicons name="trophy" size={24} color="#F59E0B" />
+          <View style={styles.penaltyFeatureText}>
+            <Text style={[styles.penaltyFeatureTitle, { color: theme.colors.text }]}>Achievement System</Text>
+            <Text style={[styles.penaltyFeatureDesc, { color: theme.colors.textSecondary }]}>Unlock badges and rewards</Text>
+          </View>
+        </View>
+        <View style={styles.penaltyFeature}>
+          <Ionicons name="people" size={24} color="#8B5CF6" />
+          <View style={styles.penaltyFeatureText}>
+            <Text style={[styles.penaltyFeatureTitle, { color: theme.colors.text }]}>Community Support</Text>
+            <Text style={[styles.penaltyFeatureDesc, { color: theme.colors.textSecondary }]}>Connect with like-minded people</Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+
+  const renderLockIn = () => (
+    <View style={styles.lockInContainer}>
+      <View style={styles.lockInIcon}>
+        <Ionicons name="lock-closed" size={48} color={theme.colors.primary} />
+      </View>
+      <Text style={[styles.lockInTitle, { color: theme.colors.text }]}>
+        The Moment of Truth
+      </Text>
+      <Text style={[styles.lockInDescription, { color: theme.colors.textSecondary }]}>
+        This is where your transformation begins. Every legend started with a single step.
+      </Text>
+      <View style={styles.lockInStats}>
+        <View style={styles.lockInStat}>
+          <Text style={[styles.lockInStatNumber, { color: theme.colors.primary }]}>66</Text>
+          <Text style={[styles.lockInStatLabel, { color: theme.colors.textSecondary }]}>Days of commitment</Text>
+        </View>
+        <View style={styles.lockInStat}>
+          <Text style={[styles.lockInStatNumber, { color: theme.colors.primary }]}>∞</Text>
+          <Text style={[styles.lockInStatLabel, { color: theme.colors.textSecondary }]}>Potential unlocked</Text>
+        </View>
+      </View>
+    </View>
+  );
+
   const renderProgressBar = () => (
     <View style={styles.progressContainer}>
       <View style={styles.progressBar}>
@@ -761,6 +940,11 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onGoHome }) => {
 
           {currentStepData.showCharacter && renderCharacter()}
           {currentStepData.showGems && renderGems()}
+          {currentStepData.showRPG && renderRankSystem()}
+          {currentStepData.notificationSettings && renderNotificationSettings()}
+          {currentStepData.showResearch && renderScientificResearch()}
+          {currentStepData.showPenalty && renderPenaltySystem()}
+          {currentStepData.showLockIn && renderLockIn()}
           {renderInput()}
           {renderOptions()}
         </View>
@@ -1242,6 +1426,219 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: 4,
     fontWeight: '500',
+  },
+  // Rank System Styles
+  rankSystemContainer: {
+    alignItems: 'center',
+    marginVertical: 30,
+  },
+  rankSystemTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  rankLadder: {
+    alignItems: 'center',
+    height: 300,
+    marginBottom: 20,
+  },
+  rankBadge: {
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: 2,
+    borderWidth: 2,
+    borderColor: '#1F2937',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  rankText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    textAlign: 'center',
+  },
+  rankDescription: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+    paddingHorizontal: 20,
+  },
+  // Notification Settings Styles
+  notificationContainer: {
+    alignItems: 'center',
+    marginVertical: 30,
+    paddingHorizontal: 20,
+  },
+  notificationIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  notificationTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  notificationDescription: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 30,
+  },
+  notificationFeatures: {
+    width: '100%',
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 20,
+  },
+  featureText: {
+    fontSize: 16,
+    marginLeft: 12,
+    fontWeight: '500',
+  },
+  // Scientific Research Styles
+  researchContainer: {
+    alignItems: 'center',
+    marginVertical: 30,
+    paddingHorizontal: 20,
+  },
+  researchIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  researchTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  researchStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginBottom: 30,
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  statLabel: {
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  researchDescription: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  // Penalty System Styles
+  penaltyContainer: {
+    alignItems: 'center',
+    marginVertical: 30,
+    paddingHorizontal: 20,
+  },
+  penaltyIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  penaltyTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  penaltyFeatures: {
+    width: '100%',
+  },
+  penaltyFeature: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingHorizontal: 20,
+  },
+  penaltyFeatureText: {
+    marginLeft: 16,
+    flex: 1,
+  },
+  penaltyFeatureTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  penaltyFeatureDesc: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  // Lock In Styles
+  lockInContainer: {
+    alignItems: 'center',
+    marginVertical: 30,
+    paddingHorizontal: 20,
+  },
+  lockInIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  lockInTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  lockInDescription: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 30,
+  },
+  lockInStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+  },
+  lockInStat: {
+    alignItems: 'center',
+  },
+  lockInStatNumber: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  lockInStatLabel: {
+    fontSize: 14,
+    textAlign: 'center',
   },
 });
 
