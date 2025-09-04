@@ -104,21 +104,26 @@ export class DjangoService {
    */
   private async getAuthHeaders(): Promise<HeadersInit> {
     const token = await AsyncStorage.getItem(DjangoService.TOKEN_KEY);
-    return {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'Authorization': token ? `Token ${token}` : '',
     };
+    if (token) {
+      headers['Authorization'] = `Token ${token}`;
+    }
+    return headers;
   }
 
   /**
-   * Make authenticated API request
+   * Make API request (optionally authenticated)
    */
-  private async makeRequest(endpoint: string, options: RequestInit = {}): Promise<any> {
+  private async makeRequest(endpoint: string, options: RequestInit = {}, includeAuth: boolean = true): Promise<any> {
     const url = `${DjangoService.BASE_URL}${endpoint}`;
-    const headers = await this.getAuthHeaders();
+    const headers = includeAuth ? await this.getAuthHeaders() : { 'Content-Type': 'application/json' };
     
     const response = await fetch(url, {
       ...options,
+      mode: 'cors',
+      credentials: 'omit',
       headers: {
         ...headers,
         ...options.headers,
@@ -126,8 +131,17 @@ export class DjangoService {
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      // Try to parse JSON error, else fall back to text for better diagnostics
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const errorData = await response.json().catch(() => ({}));
+        const message = (errorData && (errorData.error || errorData.detail)) || `HTTP ${response.status}: ${response.statusText}`;
+        throw new Error(message);
+      } else {
+        const text = await response.text().catch(() => '');
+        const message = text || `HTTP ${response.status}: ${response.statusText}`;
+        throw new Error(message);
+      }
     }
 
     return response.json();
@@ -140,7 +154,7 @@ export class DjangoService {
     const response = await this.makeRequest('/auth/register/', {
       method: 'POST',
       body: JSON.stringify(userData),
-    });
+    }, false);
 
     // Store token and user data
     await AsyncStorage.setItem(DjangoService.TOKEN_KEY, response.token);
@@ -156,7 +170,7 @@ export class DjangoService {
     const response = await this.makeRequest('/auth/login/', {
       method: 'POST',
       body: JSON.stringify(credentials),
-    });
+    }, false);
 
     // Store token and user data
     await AsyncStorage.setItem(DjangoService.TOKEN_KEY, response.token);

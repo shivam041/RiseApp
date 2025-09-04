@@ -203,8 +203,18 @@ const Questionnaire: React.FC<QuestionnaireProps> = ({ onComplete }) => {
       const updatedUser = { ...userResult, isOnboardingComplete: true };
       await dispatch(saveUser(updatedUser)).unwrap();
       
-      // Mark onboarding as complete in store
+      // Mark onboarding as complete in store and persist local fallback
       dispatch(setOnboardingComplete());
+      try {
+        const authSvc = (await import('../services/AuthService')).AuthService.getInstance();
+        const state: any = (await import('../store')).store.getState();
+        const email = state.user?.user?.email;
+        if (email) {
+          await authSvc.updateUserOnboardingStatus(email, true);
+        }
+      } catch (e) {
+        console.warn('Questionnaire: Failed to persist local onboarding flag', e);
+      }
 
       // Set up notifications
       try {

@@ -179,31 +179,42 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     // Initialize OneSignal
     const initOneSignal = async () => {
-      // Load OneSignal SDK
-      const script = document.createElement('script');
-      script.src = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js';
-      script.defer = true;
-      document.head.appendChild(script);
+      if (Platform.OS !== 'web') return;
+      try {
+        const isProdDomain = typeof window !== 'undefined' && window.location && window.location.origin === 'https://riseapppp.netlify.app';
+        if (!isProdDomain) {
+          console.log('OneSignal init skipped: not on production domain');
+          return;
+        }
+        // Load OneSignal SDK
+        const script = document.createElement('script');
+        script.src = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js';
+        script.defer = true;
+        document.head.appendChild(script);
 
-      script.onload = () => {
-        // Initialize OneSignal after SDK loads
-        window.OneSignalDeferred = window.OneSignalDeferred || [];
-        window.OneSignalDeferred.push(async function(OneSignal: any) {
-          await OneSignal.init({
-            appId: "6bad5469-9ea4-4946-99b6-8ed0c933549c",
-            allowLocalhostAsSecureOrigin: true,
-            notifyButton: {
-              enable: true,
-            },
-            welcomeNotification: {
-              title: 'Welcome to Rise! 🌅',
-              message: 'You\'ll now receive daily reminders and motivational quotes.',
-            },
+        script.onload = () => {
+          // Initialize OneSignal after SDK loads
+          // @ts-ignore
+          window.OneSignalDeferred = window.OneSignalDeferred || [];
+          // @ts-ignore
+          window.OneSignalDeferred.push(async function(OneSignal: any) {
+            await OneSignal.init({
+              appId: "6bad5469-9ea4-4946-99b6-8ed0c933549c",
+              allowLocalhostAsSecureOrigin: true,
+              notifyButton: {
+                enable: true,
+              },
+              welcomeNotification: {
+                title: 'Welcome to Rise! 🌅',
+                message: 'You\'ll now receive daily reminders and motivational quotes.',
+              },
+            });
+            console.log('OneSignal initialized successfully');
           });
-          
-          console.log('OneSignal initialized successfully');
-        });
-      };
+        };
+      } catch (e) {
+        console.warn('OneSignal init failed/skipped', e);
+      }
     };
 
     if (Platform.OS === 'web') {
@@ -279,6 +290,31 @@ const AppContent: React.FC = () => {
       console.log('App: Saving questionnaire data:', questionnaireData);
       await dispatch(saveQuestionnaire(questionnaireData));
       console.log('App: Questionnaire data saved');
+
+      // Persist onboarding completion to backend when using backend auth
+      try {
+        if (useBackendAuth) {
+          const backendAuth = BackendAuthService.getInstance();
+          await backendAuth.updateUserProfile(updatedUser.id, {
+            name: updatedUser.name,
+            is_onboarding_complete: true,
+            current_day: updatedUser.currentDay,
+          });
+        }
+      } catch (persistError) {
+        console.warn('App: Failed to persist onboarding to backend, continuing', persistError);
+      }
+
+      // As a robust fallback, also persist onboarding_complete flag keyed by email
+      try {
+        const authSvc = AuthService.getInstance();
+        await authSvc.updateUserOnboardingStatus(userEmail, true);
+        // Additionally keep a separate flag in AsyncStorage in case user object is overwritten
+        // The AuthService method will write user and optionally backend; we also ensure the local flag is present
+        // by reusing updateUserOnboardingStatus which calls storeUser.
+      } catch (e) {
+        console.warn('Failed to persist local onboarding flag, continuing', e);
+      }
       
       // Set up smart notifications based on user goals
       const oneSignalService = OneSignalService.getInstance();
@@ -504,8 +540,8 @@ const AppContent: React.FC = () => {
         dispatch(loadDayProgression()),
       ]);
 
-      // New users go to onboarding
-      setCurrentScreen('dashboard'); // You can change this to 'onboarding' if needed
+      // New users go straight to onboarding (App will render Onboarding when isOnboardingComplete is false)
+      setCurrentScreen('dashboard');
     } catch (error) {
       console.error('Error handling backend registration:', error);
       Alert.alert('Error', 'Failed to complete registration process');
@@ -547,6 +583,8 @@ const AppContent: React.FC = () => {
 
   // Show questionnaire if user hasn't completed onboarding
   if (!user || !user.isOnboardingComplete) {
+    // Robust fallback: check local onboarding flag to decide
+    // Note: we can't use async hooks here; instead, rely on stored user hydration in useEffect elsewhere
     console.log('App: User not completed onboarding, showing onboarding');
     return <Onboarding onComplete={handleQuestionnaireComplete} onGoHome={handleLogout} />;
   }

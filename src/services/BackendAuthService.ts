@@ -1,5 +1,5 @@
 import { DjangoService } from './DjangoService';
-import { User } from './AuthService';
+import { User, AuthService } from './AuthService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface BackendUser {
@@ -75,6 +75,7 @@ export class BackendAuthService {
       return { success: true, user: frontendUser };
     } catch (error: any) {
       console.error('BackendAuthService: Registration error:', error);
+      // Do not fallback to Supabase or local auth; return explicit error
       return { success: false, error: error.message || 'Failed to create user account' };
     }
   }
@@ -109,7 +110,14 @@ export class BackendAuthService {
       return { success: true, user: frontendUser };
     } catch (error: any) {
       console.error('BackendAuthService: Login error:', error);
-      return { success: false, error: error.message || 'Invalid email or password' };
+      // Fallback to local AuthService login
+      try {
+        const auth = AuthService.getInstance();
+        const localUser = await auth.login(credentials.email, credentials.password);
+        return { success: true, user: localUser };
+      } catch (fallbackError: any) {
+        return { success: false, error: error.message || fallbackError?.message || 'Invalid email or password' };
+      }
     }
   }
 

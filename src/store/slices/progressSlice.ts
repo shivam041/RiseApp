@@ -45,14 +45,20 @@ const initialState: ProgressState = {
 // Async thunk to load progress from AsyncStorage
 export const loadDailyProgress = createAsyncThunk(
   'progress/loadDailyProgress',
-  async () => {
+  async (_, { getState }) => {
     try {
-      const storedProgress = await AsyncStorage.getItem('dailyProgress');
-      const storedCurrentDay = await AsyncStorage.getItem('currentDay');
+      const state = getState() as any;
+      const email: string | undefined = state.user?.user?.email;
+      const keyProgress = email ? `dailyProgress_${email}` : 'dailyProgress';
+      const keyCurrentDay = email ? `currentDay_${email}` : 'currentDay';
+
+      // Try user-specific keys first, then fallback to generic
+      const storedProgress = (await AsyncStorage.getItem(keyProgress)) || (await AsyncStorage.getItem('dailyProgress'));
+      const storedCurrentDay = (await AsyncStorage.getItem(keyCurrentDay)) || (await AsyncStorage.getItem('currentDay'));
       
       if (storedProgress) {
         const dailyProgress = JSON.parse(storedProgress);
-        const currentDay = storedCurrentDay ? parseInt(storedCurrentDay) : 1;
+        const currentDay = storedCurrentDay ? parseInt(storedCurrentDay, 10) : 1;
         
         return { dailyProgress, currentDay };
       }
@@ -68,9 +74,14 @@ export const loadDailyProgress = createAsyncThunk(
 // Async thunk to save progress to AsyncStorage
 export const saveDailyProgress = createAsyncThunk(
   'progress/saveDailyProgress',
-  async (progress: DailyProgress) => {
+  async (progress: DailyProgress, { getState }) => {
     try {
-      const storedProgress = await AsyncStorage.getItem('dailyProgress');
+      const state = getState() as any;
+      const email: string | undefined = state.user?.user?.email;
+      const keyProgress = email ? `dailyProgress_${email}` : 'dailyProgress';
+      const keyCurrentDay = email ? `currentDay_${email}` : 'currentDay';
+
+      const storedProgress = await AsyncStorage.getItem(keyProgress);
       let dailyProgress = storedProgress ? JSON.parse(storedProgress) : [];
       
       // Update or add the progress
@@ -81,7 +92,9 @@ export const saveDailyProgress = createAsyncThunk(
         dailyProgress.push(progress);
       }
       
-      await AsyncStorage.setItem('dailyProgress', JSON.stringify(dailyProgress));
+      await AsyncStorage.setItem(keyProgress, JSON.stringify(dailyProgress));
+      // Keep a simple current day marker for hydration reliability
+      await AsyncStorage.setItem(keyCurrentDay, String(state.progress?.currentDay || 1));
       return progress;
     } catch (error) {
       console.error('Failed to save progress:', error);
@@ -93,9 +106,12 @@ export const saveDailyProgress = createAsyncThunk(
 // Async thunk to update current day
 export const updateCurrentDay = createAsyncThunk(
   'progress/updateCurrentDay',
-  async (day: number) => {
+  async (day: number, { getState }) => {
     try {
-      await AsyncStorage.setItem('currentDay', day.toString());
+      const state = getState() as any;
+      const email: string | undefined = state.user?.user?.email;
+      const keyCurrentDay = email ? `currentDay_${email}` : 'currentDay';
+      await AsyncStorage.setItem(keyCurrentDay, day.toString());
       return day;
     } catch (error) {
       console.error('Failed to update current day:', error);

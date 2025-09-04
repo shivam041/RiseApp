@@ -1,4 +1,6 @@
 import OneSignal from 'react-onesignal';
+// Guard for Platform usage in web
+const isWeb = typeof window !== 'undefined' && typeof document !== 'undefined';
 
 export interface NotificationSchedule {
   id: string;
@@ -41,7 +43,7 @@ export class OneSignalService {
     }
 
     // Only initialize on web platform
-    if (Platform.OS !== 'web') {
+    if (!isWeb) {
       console.log('OneSignal: Not initializing on non-web platform');
       return;
     }

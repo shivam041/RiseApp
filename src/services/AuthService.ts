@@ -23,6 +23,7 @@ export class AuthService {
   private static readonly USER_KEY = 'rise_user';
   private static readonly TOKEN_KEY = 'rise_token';
   private static readonly CREDENTIALS_KEY = 'rise_credentials';
+  private static readonly ONBOARDING_KEY_PREFIX = 'onboarding_complete_';
   private supabaseService: SupabaseService;
 
   private constructor() {
@@ -34,6 +35,63 @@ export class AuthService {
       AuthService.instance = new AuthService();
     }
     return AuthService.instance;
+  }
+
+  /**
+   * Persist a local onboarding-complete flag keyed by email as a robust fallback
+   */
+  private async setLocalOnboardingComplete(email: string, isComplete: boolean): Promise<void> {
+    try {
+      if (!email) return;
+      const key = `${AuthService.ONBOARDING_KEY_PREFIX}${email.toLowerCase()}`;
+      await AsyncStorage.setItem(key, JSON.stringify({ isComplete }));
+    } catch (error) {
+      console.warn('AuthService: Failed setting local onboarding flag', error);
+    }
+  }
+
+  private async getLocalOnboardingComplete(email: string): Promise<boolean> {
+    try {
+      if (!email) return false;
+      const key = `${AuthService.ONBOARDING_KEY_PREFIX}${email.toLowerCase()}`;
+      const data = await AsyncStorage.getItem(key);
+      if (!data) return false;
+      const parsed = JSON.parse(data);
+      return parsed?.isComplete === true;
+    } catch (error) {
+      console.warn('AuthService: Failed reading local onboarding flag', error);
+      return false;
+    }
+  }
+
+  /**
+   * Compute effective onboarding status and day from local storage.
+   * Treat onboarding as complete if the local flag is set OR any user-specific data exists.
+   */
+  private async getEffectiveLocalState(email: string): Promise<{ isOnboardingComplete: boolean; currentDay?: number }> {
+    try {
+      if (!email) return { isOnboardingComplete: false };
+      const lower = email.toLowerCase();
+      const onboarding = await this.getLocalOnboardingComplete(lower);
+      const [q, dp, cd] = await Promise.all([
+        AsyncStorage.getItem(`questionnaire_${lower}`),
+        AsyncStorage.getItem(`dailyProgress_${lower}`),
+        AsyncStorage.getItem(`currentDay_${lower}`),
+      ]);
+      const hasQuestionnaire = !!q;
+      const daily = dp ? JSON.parse(dp) : null;
+      const storedDay = cd ? parseInt(cd, 10) : undefined;
+      let currentDay: number | undefined = storedDay;
+      if (!currentDay && Array.isArray(daily) && daily.length > 0) {
+        // Use length as a simple day indicator fallback
+        currentDay = Math.max(1, Math.min(66, daily.length));
+      }
+      const isComplete = onboarding || hasQuestionnaire || (Array.isArray(daily) && daily.length > 0);
+      return { isOnboardingComplete: isComplete, currentDay };
+    } catch (e) {
+      console.warn('AuthService: getEffectiveLocalState failed', e);
+      return { isOnboardingComplete: false };
+    }
   }
 
   // Simulate user database (in a real app, this would be an API call)
@@ -97,6 +155,16 @@ export class AuthService {
           isOnboardingComplete: supabaseUser.is_onboarding_complete,
           isAuthenticated: true,
         };
+        // Merge effective local onboarding/day
+        try {
+          const effective = await this.getEffectiveLocalState(user.email);
+          if (effective.isOnboardingComplete && !user.isOnboardingComplete) {
+            user.isOnboardingComplete = true;
+          }
+          if (effective.currentDay && !user.currentDay) {
+            user.currentDay = effective.currentDay;
+          }
+        } catch {}
         
         // Store user data
         await this.storeUser(user);
@@ -114,6 +182,17 @@ export class AuthService {
       if (AuthBackend.isEnabled()) {
         try {
           const user = await AuthBackend.signIn(email, password);
+          // Merge effective local onboarding/day
+          try {
+            const effective = await this.getEffectiveLocalState(user.email);
+            if (effective.isOnboardingComplete && !user.isOnboardingComplete) {
+              user.isOnboardingComplete = true;
+            }
+            if (effective.currentDay && !user.currentDay) {
+              user.currentDay = effective.currentDay;
+            }
+          } catch {}
+
           await this.storeUser(user);
           await this.storeToken(this.generateToken(user));
           await this.storeCredentials({ email, password });
@@ -157,6 +236,17 @@ export class AuthService {
         ...user,
         isAuthenticated: true,
       };
+
+      // Merge effective local onboarding/day
+      try {
+        const effective = await this.getEffectiveLocalState(authenticatedUser.email);
+        if (effective.isOnboardingComplete && !authenticatedUser.isOnboardingComplete) {
+          authenticatedUser.isOnboardingComplete = true;
+        }
+        if (effective.currentDay && !authenticatedUser.currentDay) {
+          authenticatedUser.currentDay = effective.currentDay;
+        }
+      } catch {}
 
       // Store user data and token
       await this.storeUser(authenticatedUser);
@@ -391,6 +481,16 @@ export class AuthService {
             isOnboardingComplete: supabaseUser.is_onboarding_complete,
             isAuthenticated: true,
           };
+          // Merge effective local onboarding/day
+          try {
+            const effective = await this.getEffectiveLocalState(user.email);
+            if (effective.isOnboardingComplete && !user.isOnboardingComplete) {
+              user.isOnboardingComplete = true;
+            }
+            if (effective.currentDay && !user.currentDay) {
+              user.currentDay = effective.currentDay;
+            }
+          } catch {}
           
           // Store in local storage for consistency
           await this.storeUser(user);

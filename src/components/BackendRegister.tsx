@@ -82,16 +82,7 @@ const BackendRegister: React.FC<BackendRegisterProps> = ({ onRegister, onLogin }
       });
 
       if (result.success && result.user) {
-        Alert.alert(
-          'Registration Successful',
-          'Your account has been created successfully!',
-          [
-            {
-              text: 'OK',
-              onPress: () => onRegister(result.user),
-            },
-          ]
-        );
+        onRegister(result.user);
       } else {
         Alert.alert('Registration Failed', result.error || 'Failed to create account');
       }
