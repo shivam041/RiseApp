@@ -85,7 +85,7 @@ const Stats: React.FC<StatsProps> = ({ onBack }) => {
         currentRating: Math.min(100, Math.round((categoryStats.mind.completed / categoryStats.mind.total) * 100) + 50),
         dayOneRating: 42,
         improvement: Math.min(100, Math.round((categoryStats.mind.completed / categoryStats.mind.total) * 100) + 50) - 42,
-        icon: 'brain',
+        icon: 'book',
         color: '#8B5CF6',
       },
       {
@@ -143,7 +143,7 @@ const Stats: React.FC<StatsProps> = ({ onBack }) => {
       currentRating: 42,
       dayOneRating: 42,
       improvement: 0,
-      icon: 'brain',
+      icon: 'book',
       color: '#8B5CF6',
     },
     {

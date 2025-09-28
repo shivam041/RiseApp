@@ -69,14 +69,27 @@ const registerServiceWorker = async () => {
 // Initialize OneSignal and motivational quotes
 const initializeServices = async () => {
   try {
-    // Initialize OneSignal
-    const oneSignalService = OneSignalService.getInstance();
-    await oneSignalService.initialize();
-    
-    // Schedule daily reminders
-    await oneSignalService.scheduleDailyReminders();
-    
-    console.log('OneSignal and motivational quotes initialized successfully');
+    // Only initialize OneSignal on web platform and in production
+    if (Platform.OS === 'web') {
+      const isProdDomain = typeof window !== 'undefined' && window.location && window.location.origin === 'https://riseapppp.netlify.app';
+      if (!isProdDomain) {
+        console.log('OneSignal init skipped: not on production domain');
+        return;
+      }
+      
+      // Initialize OneSignal
+      const oneSignalService = OneSignalService.getInstance();
+      if (!oneSignalService.isServiceInitialized()) {
+        await oneSignalService.initialize();
+        
+        // Schedule daily reminders
+        await oneSignalService.scheduleDailyReminders();
+        
+        console.log('OneSignal and motivational quotes initialized successfully');
+      } else {
+        console.log('OneSignal already initialized, skipping');
+      }
+    }
   } catch (error) {
     console.error('Failed to initialize services:', error);
   }
@@ -110,6 +123,27 @@ const AppContent: React.FC = () => {
     console.log('  - Current screen:', currentScreen);
   }, [user, isAuthenticated, currentScreen]);
 
+  // Initialize user state from storage on app start
+  useEffect(() => {
+    const initializeUserState = async () => {
+      try {
+        const authService = AuthService.getInstance();
+        const storedUser = await authService.getCurrentUser();
+        
+        if (storedUser) {
+          console.log('App: Found stored user, loading into Redux:', storedUser);
+          await dispatch(saveUser(storedUser));
+        } else {
+          console.log('App: No stored user found');
+        }
+      } catch (error) {
+        console.error('App: Failed to initialize user state:', error);
+      }
+    };
+
+    initializeUserState();
+  }, [dispatch]);
+
   useEffect(() => {
     const initializeApp = async () => {
       try {
@@ -123,38 +157,52 @@ const AppContent: React.FC = () => {
         // Initialize OneSignal and other services
         await initializeServices();
         
-        // Check if user is authenticated
-        const authService = AuthService.getInstance();
-        const isAuthenticated = await authService.isAuthenticated();
-        
-        console.log('App initialization - isAuthenticated:', isAuthenticated);
+        // Check if user is authenticated with error handling
+        let isAuthenticated = false;
+        try {
+          const authService = AuthService.getInstance();
+          isAuthenticated = await authService.isAuthenticated();
+          console.log('App initialization - isAuthenticated:', isAuthenticated);
+        } catch (authError) {
+          console.warn('Authentication check failed, continuing with local auth:', authError);
+          isAuthenticated = false;
+        }
         
         if (isAuthenticated) {
           console.log('App: User is authenticated, loading user data...');
           
-          // Load user data first, then progress and questionnaire
-          await dispatch(loadUser());
-          console.log('App: User data loaded from Redux store');
-          
-          // Wait a bit for user data to be available, then load other data
-          setTimeout(async () => {
-            try {
-              console.log('App: Loading additional user data...');
-              await Promise.all([
-                dispatch(loadDailyProgress()),
-                dispatch(loadQuestionnaire()),
-                dispatch(loadGoals()),
-                dispatch(loadNotes()),
-                dispatch(loadCalendarTasks()),
-                dispatch(loadDayProgression()),
-              ]);
-              console.log('All data loaded successfully');
-            } catch (error) {
-              console.error('Failed to load data:', error);
+          try {
+            // Get the current user from auth service
+            const authService = AuthService.getInstance();
+            const currentUser = await authService.getCurrentUser();
+            if (currentUser) {
+              // Load user data into Redux store
+              await dispatch(saveUser(currentUser));
+              console.log('App: User data loaded from auth service:', currentUser);
+              
+              // Load additional user data
+              try {
+                console.log('App: Loading additional user data...');
+                await Promise.all([
+                  dispatch(loadDailyProgress()),
+                  dispatch(loadQuestionnaire()),
+                  dispatch(loadGoals()),
+                  dispatch(loadNotes()),
+                  dispatch(loadCalendarTasks()),
+                  dispatch(loadDayProgression()),
+                ]);
+                console.log('All data loaded successfully');
+              } catch (error) {
+                console.error('Failed to load data:', error);
+              }
+            } else {
+              console.log('App: No user found in auth service, clearing user data...');
+              await dispatch(clearUser());
             }
-          }, 100);
-          
-          console.log('User data loaded successfully');
+          } catch (userError) {
+            console.error('Failed to load user data:', userError);
+            await dispatch(clearUser());
+          }
         } else {
           console.log('App: User not authenticated, clearing user data...');
           // Clear any existing user data if not authenticated
@@ -176,51 +224,7 @@ const AppContent: React.FC = () => {
     initializeApp();
   }, [dispatch]);
 
-  useEffect(() => {
-    // Initialize OneSignal
-    const initOneSignal = async () => {
-      if (Platform.OS !== 'web') return;
-      try {
-        const isProdDomain = typeof window !== 'undefined' && window.location && window.location.origin === 'https://riseapppp.netlify.app';
-        if (!isProdDomain) {
-          console.log('OneSignal init skipped: not on production domain');
-          return;
-        }
-        // Load OneSignal SDK
-        const script = document.createElement('script');
-        script.src = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js';
-        script.defer = true;
-        document.head.appendChild(script);
-
-        script.onload = () => {
-          // Initialize OneSignal after SDK loads
-          // @ts-ignore
-          window.OneSignalDeferred = window.OneSignalDeferred || [];
-          // @ts-ignore
-          window.OneSignalDeferred.push(async function(OneSignal: any) {
-            await OneSignal.init({
-              appId: "6bad5469-9ea4-4946-99b6-8ed0c933549c",
-              allowLocalhostAsSecureOrigin: true,
-              notifyButton: {
-                enable: true,
-              },
-              welcomeNotification: {
-                title: 'Welcome to Rise! 🌅',
-                message: 'You\'ll now receive daily reminders and motivational quotes.',
-              },
-            });
-            console.log('OneSignal initialized successfully');
-          });
-        };
-      } catch (e) {
-        console.warn('OneSignal init failed/skipped', e);
-      }
-    };
-
-    if (Platform.OS === 'web') {
-      initOneSignal();
-    }
-  }, []);
+  // OneSignal initialization is now handled in initializeServices()
 
   const handleQuestionnaireComplete = async (userData: any) => {
     try {

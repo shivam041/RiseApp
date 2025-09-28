@@ -93,6 +93,12 @@ export class OneSignalService {
         console.log('Notification permission denied');
       }
     } catch (error) {
+      const message = (error as any)?.message || String(error);
+      if (message && message.includes('SDK already initialized')) {
+        this.isInitialized = true;
+        console.warn('OneSignal already initialized by page script; continuing');
+        return;
+      }
       console.error('OneSignal initialization failed:', error);
       throw error;
     }

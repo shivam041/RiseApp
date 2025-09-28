@@ -561,7 +561,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       case 'exercise':
         return 'fitness';
       case 'mind':
-        return 'brain';
+        return 'book';
       case 'shower':
         return 'water-outline';
       case 'screenTime':

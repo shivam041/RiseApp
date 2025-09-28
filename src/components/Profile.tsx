@@ -632,19 +632,6 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onNavigateToNotificationSetti
             </Text>
           </TouchableOpacity>
           
-          {/* Supabase Test Button */}
-          <TouchableOpacity
-            style={[styles.settingItem, { backgroundColor: theme.colors.surface }]}
-            onPress={() => {
-              // Navigate to Supabase test component
-              console.log('Profile: Supabase test button pressed');
-              // You can add navigation here or import the component directly
-            }}
-          >
-            <Text style={[styles.settingTitle, { color: theme.colors.text }]}>
-              Test Supabase Integration
-            </Text>
-          </TouchableOpacity>
           
           {renderSettingItem(
             'Logout',

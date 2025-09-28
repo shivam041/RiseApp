@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AuthBackend from './AuthBackend';
-import { SupabaseService } from './SupabaseService';
+import { BackendAuthService } from './BackendAuthService';
 
 export interface User {
   id: string;
@@ -24,11 +24,7 @@ export class AuthService {
   private static readonly TOKEN_KEY = 'rise_token';
   private static readonly CREDENTIALS_KEY = 'rise_credentials';
   private static readonly ONBOARDING_KEY_PREFIX = 'onboarding_complete_';
-  private supabaseService: SupabaseService;
-
-  private constructor() {
-    this.supabaseService = SupabaseService.getInstance();
-  }
+  private constructor() {}
 
   public static getInstance(): AuthService {
     if (!AuthService.instance) {
@@ -140,66 +136,29 @@ export class AuthService {
     try {
       console.log('AuthService: Login attempt for email:', email);
       
-      // Try Supabase first if available
+
+      // Try Django backend first
       try {
-        const supabaseUser = await this.supabaseService.signIn(email, password);
-        console.log('AuthService: Supabase login successful:', supabaseUser);
+        const backendAuth = BackendAuthService.getInstance();
+        const result = await backendAuth.loginUser({ email, password });
         
-        // Convert Supabase user to our User format
-        const user: User = {
-          id: supabaseUser.id,
-          email: supabaseUser.email,
-          name: supabaseUser.name,
-          startDate: supabaseUser.start_date,
-          currentDay: supabaseUser.current_day,
-          isOnboardingComplete: supabaseUser.is_onboarding_complete,
-          isAuthenticated: true,
-        };
-        // Merge effective local onboarding/day
-        try {
-          const effective = await this.getEffectiveLocalState(user.email);
-          if (effective.isOnboardingComplete && !user.isOnboardingComplete) {
-            user.isOnboardingComplete = true;
-          }
-          if (effective.currentDay && !user.currentDay) {
-            user.currentDay = effective.currentDay;
-          }
-        } catch {}
-        
-        // Store user data
-        await this.storeUser(user);
-        await this.storeToken(this.generateToken(user));
-        await this.storeCredentials({ email, password });
-        
-        console.log('AuthService: User authenticated via Supabase:', user);
-        return user;
-      } catch (supabaseError) {
-        console.warn('Supabase login failed, falling back to mock auth:', supabaseError);
-        // Fall back to mock auth if Supabase fails
-      }
-
-      // Prefer backend when configured
-      if (AuthBackend.isEnabled()) {
-        try {
-          const user = await AuthBackend.signIn(email, password);
-          // Merge effective local onboarding/day
-          try {
-            const effective = await this.getEffectiveLocalState(user.email);
-            if (effective.isOnboardingComplete && !user.isOnboardingComplete) {
-              user.isOnboardingComplete = true;
-            }
-            if (effective.currentDay && !user.currentDay) {
-              user.currentDay = effective.currentDay;
-            }
-          } catch {}
-
-          await this.storeUser(user);
-          await this.storeToken(this.generateToken(user));
+        if (result.success && result.user) {
+          console.log('Django backend login successful:', result.user.email);
+          
+          // Store user data
+          await this.storeUser(result.user);
+          await this.storeToken(this.generateToken(result.user));
           await this.storeCredentials({ email, password });
-          return user;
-        } catch (backendError) {
-          console.warn('Backend auth failed, falling back to mock auth:', backendError);
-          // Fall back to mock auth if backend fails
+          
+          return result.user;
+        } else {
+          console.warn('Django backend login failed:', result.error);
+        }
+      } catch (backendError) {
+        console.warn('Django backend auth failed, falling back to mock auth:', backendError);
+        // If it's a network error, continue with local auth
+        if (backendError instanceof TypeError && backendError.message.includes('Failed to fetch')) {
+          console.warn('Network error during backend auth, using local auth only');
         }
       }
       
@@ -267,45 +226,27 @@ export class AuthService {
     try {
       console.log('AuthService: Registration attempt for email:', email);
       
-      // Try Supabase first if available
-      try {
-        const supabaseUser = await this.supabaseService.signUp(email, password);
-        console.log('AuthService: Supabase registration successful:', supabaseUser);
-        
-        // Convert Supabase user to our User format
-        const user: User = {
-          id: supabaseUser.id,
-          email: supabaseUser.email,
-          name: supabaseUser.name,
-          startDate: supabaseUser.start_date,
-          currentDay: supabaseUser.current_day,
-          isOnboardingComplete: supabaseUser.is_onboarding_complete,
-          isAuthenticated: true,
-        };
-        
-        // Store user data
-        await this.storeUser(user);
-        await this.storeToken(this.generateToken(user));
-        await this.storeCredentials({ email, password });
-        
-        console.log('AuthService: User registered via Supabase:', user);
-        return user;
-      } catch (supabaseError) {
-        console.warn('Supabase registration failed, falling back to mock auth:', supabaseError);
-        // Fall back to mock auth if Supabase fails
-      }
 
-      if (AuthBackend.isEnabled()) {
-        try {
-          const user = await AuthBackend.signUp(email, password);
-          await this.storeUser(user);
-          await this.storeToken(this.generateToken(user));
+      // Try Django backend first
+      try {
+        const backendAuth = BackendAuthService.getInstance();
+        const result = await backendAuth.registerUser({ email, password });
+        
+        if (result.success && result.user) {
+          console.log('Django backend registration successful:', result.user.email);
+          
+          // Store user data
+          await this.storeUser(result.user);
+          await this.storeToken(this.generateToken(result.user));
           await this.storeCredentials({ email, password });
-          return user;
-        } catch (backendError) {
-          console.warn('Backend registration failed, falling back to mock auth:', backendError);
-          // Fall back to mock auth if backend fails
+          
+          return result.user;
+        } else {
+          console.warn('Django backend registration failed:', result.error);
         }
+      } catch (backendError) {
+        console.warn('Django backend registration failed, falling back to mock auth:', backendError);
+        // Fall back to mock auth if backend fails
       }
       
       // Simulate API delay
@@ -388,13 +329,6 @@ export class AuthService {
   async logout(): Promise<void> {
     console.log('AuthService: logout() called');
     try {
-      // Try Supabase logout first
-      try {
-        await this.supabaseService.signOut();
-        console.log('AuthService: Supabase logout successful');
-      } catch (supabaseError) {
-        console.warn('Supabase logout failed:', supabaseError);
-      }
       
       if (AuthBackend.isEnabled()) {
         console.log('AuthService: Backend enabled, calling signOut');
@@ -417,27 +351,22 @@ export class AuthService {
    */
   async isAuthenticated(): Promise<boolean> {
     try {
-      // Try Supabase first
-      try {
-        const isSupabaseAuth = await this.supabaseService.isAuthenticated();
-        if (isSupabaseAuth) {
-          console.log('AuthService: User authenticated via Supabase');
-          return true;
-        }
-      } catch (supabaseError) {
-        console.warn('Supabase auth check failed:', supabaseError);
-      }
       
-      if (AuthBackend.isEnabled()) {
-        try {
-          const backendUser = await AuthBackend.getSessionUser();
-          if (backendUser) {
-            await this.storeUser(backendUser);
+      // Try Django backend first
+      try {
+        const backendAuth = BackendAuthService.getInstance();
+        const isAuthenticated = await backendAuth.isAuthenticated();
+        
+        if (isAuthenticated) {
+          const currentUser = await backendAuth.getCurrentUser();
+          if (currentUser) {
+            await this.storeUser(currentUser);
             return true;
           }
-        } catch (backendError) {
-          console.warn('Backend auth check failed:', backendError);
         }
+      } catch (backendError) {
+        console.warn('Django backend auth check failed:', backendError);
+        // Don't throw error, just continue with local auth
       }
       
       const user = await this.getCurrentUser();
@@ -456,6 +385,11 @@ export class AuthService {
       return isAuth;
     } catch (error) {
       console.error('Authentication check error:', error);
+      // If there's a network error (like DNS resolution), return false and continue with local auth
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        console.warn('Network error during authentication check, using local auth only');
+        return false;
+      }
       return false;
     }
   }
@@ -465,40 +399,6 @@ export class AuthService {
    */
   async getCurrentUser(): Promise<User | null> {
     try {
-      // Try Supabase first
-      try {
-        const supabaseUser = await this.supabaseService.getCurrentUser();
-        if (supabaseUser) {
-          console.log('AuthService: Got current user from Supabase:', supabaseUser);
-          
-          // Convert Supabase user to our User format
-          const user: User = {
-            id: supabaseUser.id,
-            email: supabaseUser.email,
-            name: supabaseUser.name,
-            startDate: supabaseUser.start_date,
-            currentDay: supabaseUser.current_day,
-            isOnboardingComplete: supabaseUser.is_onboarding_complete,
-            isAuthenticated: true,
-          };
-          // Merge effective local onboarding/day
-          try {
-            const effective = await this.getEffectiveLocalState(user.email);
-            if (effective.isOnboardingComplete && !user.isOnboardingComplete) {
-              user.isOnboardingComplete = true;
-            }
-            if (effective.currentDay && !user.currentDay) {
-              user.currentDay = effective.currentDay;
-            }
-          } catch {}
-          
-          // Store in local storage for consistency
-          await this.storeUser(user);
-          return user;
-        }
-      } catch (supabaseError) {
-        console.warn('Supabase getCurrentUser failed:', supabaseError);
-      }
       
       // Fallback to local storage
       const userData = await AsyncStorage.getItem(AuthService.USER_KEY);

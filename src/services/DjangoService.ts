@@ -86,7 +86,7 @@ export interface LoginData {
 
 export class DjangoService {
   private static instance: DjangoService;
-  private static readonly BASE_URL = 'http://localhost:8000/api';
+  private static readonly BASE_URL = (process.env.EXPO_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api');
   private static readonly TOKEN_KEY = 'django_token';
   private static readonly USER_KEY = 'django_user';
 

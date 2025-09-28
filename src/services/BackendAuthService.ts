@@ -110,14 +110,7 @@ export class BackendAuthService {
       return { success: true, user: frontendUser };
     } catch (error: any) {
       console.error('BackendAuthService: Login error:', error);
-      // Fallback to local AuthService login
-      try {
-        const auth = AuthService.getInstance();
-        const localUser = await auth.login(credentials.email, credentials.password);
-        return { success: true, user: localUser };
-      } catch (fallbackError: any) {
-        return { success: false, error: error.message || fallbackError?.message || 'Invalid email or password' };
-      }
+      return { success: false, error: error.message || 'Invalid email or password' };
     }
   }
 

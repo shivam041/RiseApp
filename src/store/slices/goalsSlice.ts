@@ -1,6 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SupabaseService } from '../../services/SupabaseService';
 
 export interface Goal {
   id: string;
@@ -26,7 +25,7 @@ const initialState: GoalsState = {
   error: null,
 };
 
-// Load goals from Supabase or AsyncStorage fallback
+// Load goals from AsyncStorage
 export const loadGoals = createAsyncThunk('goals/loadGoals', async (_, { getState }) => {
   try {
     const state = getState() as any;
@@ -39,27 +38,18 @@ export const loadGoals = createAsyncThunk('goals/loadGoals', async (_, { getStat
       return storedGoals ? JSON.parse(storedGoals) : [];
     }
 
-    console.log('Loading goals from Supabase for user:', currentUser.email);
+    console.log('Loading goals from AsyncStorage for user:', currentUser.email);
     
-    try {
-      // Try Supabase first
-      const supabaseService = SupabaseService.getInstance();
-      const goals = await supabaseService.loadGoals(currentUser.id);
-      console.log('Goals loaded from Supabase:', goals.length);
-      return goals;
-    } catch (supabaseError) {
-      console.warn('Supabase failed, falling back to AsyncStorage:', supabaseError);
-      // Fallback to AsyncStorage
-      const storedGoals = await AsyncStorage.getItem(`goals_${currentUser.email}`);
-      return storedGoals ? JSON.parse(storedGoals) : [];
-    }
+    // Load from AsyncStorage
+    const storedGoals = await AsyncStorage.getItem(`goals_${currentUser.email}`);
+    return storedGoals ? JSON.parse(storedGoals) : [];
   } catch (error) {
     console.error('Failed to load goals:', error);
     return [];
   }
 });
 
-// Save goals to Supabase and AsyncStorage
+// Save goals to AsyncStorage
 export const saveGoals = createAsyncThunk('goals/saveGoals', async (goals: Goal[], { getState }) => {
   try {
     const state = getState() as any;
@@ -71,17 +61,9 @@ export const saveGoals = createAsyncThunk('goals/saveGoals', async (goals: Goal[
 
     console.log('Saving goals for user:', currentUser.email);
     
-    // Save to AsyncStorage as backup
+    // Save to AsyncStorage
     await AsyncStorage.setItem(`goals_${currentUser.email}`, JSON.stringify(goals));
-    
-    try {
-      // Try to save to Supabase
-      const supabaseService = SupabaseService.getInstance();
-      await supabaseService.saveGoals(currentUser.id, goals);
-      console.log('Goals saved to Supabase successfully');
-    } catch (supabaseError) {
-      console.warn('Supabase save failed, but AsyncStorage backup saved:', supabaseError);
-    }
+    console.log('Goals saved to AsyncStorage successfully');
     
     return goals;
   } catch (error) {
