@@ -137,7 +137,25 @@ export class AuthService {
       console.log('AuthService: Login attempt for email:', email);
       
 
-      // Try Django backend first
+      // Try Supabase backend first
+      if (AuthBackend.isEnabled()) {
+        try {
+          console.log('AuthService: Attempting Supabase login...');
+          const user = await AuthBackend.signIn(email, password);
+          console.log('Supabase login successful:', user.email);
+          
+          // Store user data
+          await this.storeUser(user);
+          await this.storeToken(this.generateToken(user));
+          await this.storeCredentials({ email, password });
+          
+          return user;
+        } catch (supabaseError) {
+          console.warn('Supabase login failed, trying Django backend:', supabaseError);
+        }
+      }
+
+      // Try Django backend as fallback
       try {
         const backendAuth = BackendAuthService.getInstance();
         const result = await backendAuth.loginUser({ email, password });
@@ -227,7 +245,25 @@ export class AuthService {
       console.log('AuthService: Registration attempt for email:', email);
       
 
-      // Try Django backend first
+      // Try Supabase backend first
+      if (AuthBackend.isEnabled()) {
+        try {
+          console.log('AuthService: Attempting Supabase registration...');
+          const user = await AuthBackend.signUp(email, password);
+          console.log('Supabase registration successful:', user.email);
+          
+          // Store user data
+          await this.storeUser(user);
+          await this.storeToken(this.generateToken(user));
+          await this.storeCredentials({ email, password });
+          
+          return user;
+        } catch (supabaseError) {
+          console.warn('Supabase registration failed, trying Django backend:', supabaseError);
+        }
+      }
+
+      // Try Django backend as fallback
       try {
         const backendAuth = BackendAuthService.getInstance();
         const result = await backendAuth.registerUser({ email, password });

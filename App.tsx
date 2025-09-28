@@ -101,7 +101,7 @@ const AppContent: React.FC = () => {
   const { theme } = useTheme();
   const [currentScreen, setCurrentScreen] = useState<'dashboard' | 'profile' | 'calendar' | 'notes' | 'notificationSettings' | 'stats' | 'adminPanel' | 'backendAdmin' | 'backendUserManagement'>('dashboard');
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const [useBackendAuth, setUseBackendAuth] = useState(true); // Use backend auth by default
+  const [useBackendAuth, setUseBackendAuth] = useState(false); // Use Supabase auth by default
   const [isLoading, setIsLoading] = useState(true);
 
   // Derive authentication state from user state

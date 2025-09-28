@@ -12,7 +12,7 @@ export interface Profile {
 
 export class AuthBackend {
   static isEnabled(): boolean {
-    return false; // Disabled - using Django backend only
+    return true; // Enable Supabase authentication
   }
 
   static async signUp(email: string, password: string): Promise<AppUser> {
