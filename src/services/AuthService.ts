@@ -190,21 +190,30 @@ export class AuthService {
       const storedPassword = this.mockPasswords[email.toLowerCase()];
 
       if (!user || storedPassword !== password) {
-        // Check if user exists in storage (for users who completed questionnaire)
-        const storedUser = await this.getCurrentUser();
-        if (storedUser && storedUser.email.toLowerCase() === email.toLowerCase()) {
-          // For now, allow login for any stored user (in real app, verify password)
-          const authenticatedUser: User = {
-            ...storedUser,
+        // Check if user has existing data in storage (questionnaire, goals, etc.)
+        const existingQuestionnaire = await AsyncStorage.getItem(`questionnaire_${email}`);
+        const existingGoals = await AsyncStorage.getItem(`goals_${email}`);
+        
+        if (existingQuestionnaire || existingGoals) {
+          // User has existing data, restore their account
+          console.log('AuthService: Found existing user data, restoring account');
+          const restoredUser: User = {
+            id: `user-${Date.now()}`,
+            email: email,
+            name: email.split('@')[0], // Use email prefix as name
+            startDate: new Date().toISOString(),
+            currentDay: 1,
+            isOnboardingComplete: true, // Mark as complete since they have data
             isAuthenticated: true,
+            isAdmin: false,
           };
 
           // Store user data and token
-          await this.storeUser(authenticatedUser);
-          await this.storeToken(this.generateToken(authenticatedUser));
+          await this.storeUser(restoredUser);
+          await this.storeToken(this.generateToken(restoredUser));
           await this.storeCredentials({ email, password });
 
-          return authenticatedUser;
+          return restoredUser;
         }
         
         throw new Error('Invalid email or password');
@@ -295,10 +304,36 @@ export class AuthService {
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Check if user already exists
+      // Check if user already exists in mock users
       const existingUser = this.mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
       if (existingUser) {
         throw new Error('User with this email already exists');
+      }
+
+      // Check if user has existing data (might be returning user)
+      const existingQuestionnaire = await AsyncStorage.getItem(`questionnaire_${email}`);
+      const existingGoals = await AsyncStorage.getItem(`goals_${email}`);
+      
+      if (existingQuestionnaire || existingGoals) {
+        // User has existing data, restore their account instead of creating new one
+        console.log('AuthService: Found existing user data during registration, restoring account');
+        const restoredUser: User = {
+          id: `user-${Date.now()}`,
+          email: email.toLowerCase(),
+          name: email.split('@')[0],
+          startDate: new Date().toISOString(),
+          currentDay: 1,
+          isOnboardingComplete: true, // Mark as complete since they have data
+          isAuthenticated: true,
+          isAdmin: false,
+        };
+
+        // Store user data and token
+        await this.storeUser(restoredUser);
+        await this.storeToken(this.generateToken(restoredUser));
+        await this.storeCredentials({ email, password });
+
+        return restoredUser;
       }
 
       // Create new user
@@ -328,7 +363,7 @@ export class AuthService {
   }
 
   /**
-   * Clear all user data from storage
+   * Clear all user data from storage (for account deletion)
    */
   async clearUserData(): Promise<void> {
     try {
@@ -367,6 +402,25 @@ export class AuthService {
   }
 
   /**
+   * Clear only session data (for logout) - preserves user data
+   */
+  async clearSessionData(): Promise<void> {
+    try {
+      console.log('AuthService: clearSessionData called');
+      
+      // Only clear session-related keys, preserve user data
+      const sessionKeys = [AuthService.USER_KEY, AuthService.TOKEN_KEY, AuthService.CREDENTIALS_KEY];
+      console.log('AuthService: Clearing session keys:', sessionKeys);
+      await AsyncStorage.multiRemove(sessionKeys);
+      
+      console.log('AuthService: Session data cleared successfully');
+    } catch (error) {
+      console.error('Clear session data error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Logout user
    */
   async logout(): Promise<void> {
@@ -378,9 +432,9 @@ export class AuthService {
         await AuthBackend.signOut();
       }
       
-      console.log('AuthService: Clearing stored data');
-      // Clear stored data (this now includes user-specific data)
-      await this.clearUserData();
+      console.log('AuthService: Clearing session data');
+      // Clear only session data, preserve user data
+      await this.clearSessionData();
       
       console.log('AuthService: Logout completed successfully');
     } catch (error) {
