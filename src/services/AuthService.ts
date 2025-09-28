@@ -137,7 +137,7 @@ export class AuthService {
       console.log('AuthService: Login attempt for email:', email);
       
 
-      // Try Supabase backend first
+      // Try Supabase backend first (if configured)
       if (AuthBackend.isEnabled()) {
         try {
           console.log('AuthService: Attempting Supabase login...');
@@ -155,7 +155,7 @@ export class AuthService {
         }
       }
 
-      // Try Django backend as fallback
+      // Try Django backend as fallback (if configured)
       try {
         const backendAuth = BackendAuthService.getInstance();
         const result = await backendAuth.loginUser({ email, password });
@@ -173,10 +173,12 @@ export class AuthService {
           console.warn('Django backend login failed:', result.error);
         }
       } catch (backendError) {
-        console.warn('Django backend auth failed, falling back to mock auth:', backendError);
-        // If it's a network error, continue with local auth
-        if (backendError instanceof TypeError && backendError.message.includes('Failed to fetch')) {
-          console.warn('Network error during backend auth, using local auth only');
+        console.warn('Django backend auth failed, falling back to local auth:', backendError);
+        // If it's a network error or CORS error, continue with local auth
+        if (backendError instanceof TypeError && 
+            (backendError.message.includes('Failed to fetch') || 
+             backendError.message.includes('CORS'))) {
+          console.warn('Network/CORS error during backend auth, using local auth only');
         }
       }
       
@@ -245,7 +247,7 @@ export class AuthService {
       console.log('AuthService: Registration attempt for email:', email);
       
 
-      // Try Supabase backend first
+      // Try Supabase backend first (if configured)
       if (AuthBackend.isEnabled()) {
         try {
           console.log('AuthService: Attempting Supabase registration...');
@@ -263,7 +265,7 @@ export class AuthService {
         }
       }
 
-      // Try Django backend as fallback
+      // Try Django backend as fallback (if configured)
       try {
         const backendAuth = BackendAuthService.getInstance();
         const result = await backendAuth.registerUser({ email, password });
@@ -281,8 +283,13 @@ export class AuthService {
           console.warn('Django backend registration failed:', result.error);
         }
       } catch (backendError) {
-        console.warn('Django backend registration failed, falling back to mock auth:', backendError);
-        // Fall back to mock auth if backend fails
+        console.warn('Django backend registration failed, falling back to local auth:', backendError);
+        // If it's a network error or CORS error, continue with local auth
+        if (backendError instanceof TypeError && 
+            (backendError.message.includes('Failed to fetch') || 
+             backendError.message.includes('CORS'))) {
+          console.warn('Network/CORS error during backend auth, using local auth only');
+        }
       }
       
       // Simulate API delay

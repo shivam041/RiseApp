@@ -16,31 +16,40 @@ export class AuthBackend {
   }
 
   static async signUp(email: string, password: string): Promise<AppUser> {
-    throw new Error('AuthBackend is disabled - use Django backend');
+    // For now, fall back to mock authentication since Supabase isn't fully configured
+    console.log('AuthBackend: signUp called, falling back to mock auth');
+    throw new Error('Supabase not configured - use local authentication');
   }
 
   static async signIn(email: string, password: string): Promise<AppUser> {
-    throw new Error('AuthBackend is disabled - use Django backend');
+    // For now, fall back to mock authentication since Supabase isn't fully configured
+    console.log('AuthBackend: signIn called, falling back to mock auth');
+    throw new Error('Supabase not configured - use local authentication');
   }
 
   static async signOut(): Promise<void> {
-    // No-op - AuthBackend is disabled
+    console.log('AuthBackend: signOut called');
+    // No-op for now
   }
 
   static async getSessionUser(): Promise<AppUser | null> {
-    return null; // AuthBackend is disabled
+    console.log('AuthBackend: getSessionUser called');
+    return null; // No active session
   }
 
   static async upsertProfile(profile: Profile): Promise<void> {
-    // No-op - AuthBackend is disabled
+    console.log('AuthBackend: upsertProfile called');
+    // No-op for now
   }
 
   static async getOrCreateProfile(id: string, email: string): Promise<Profile> {
-    throw new Error('AuthBackend is disabled - use Django backend');
+    console.log('AuthBackend: getOrCreateProfile called');
+    throw new Error('Supabase not configured - use local authentication');
   }
 
   static async updateOnboardingComplete(id: string, complete: boolean): Promise<void> {
-    // No-op - AuthBackend is disabled
+    console.log('AuthBackend: updateOnboardingComplete called');
+    // No-op for now
   }
 
   private static mapProfileToAppUser(p: Profile, isAuthenticated: boolean): AppUser {
