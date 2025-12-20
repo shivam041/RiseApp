@@ -1,18 +1,15 @@
-//
-//  RiseAppApp.swift
-//  RiseApp
-//
-//  Created by Shivam Patel on 11/22/25.
-//
-
 import SwiftUI
 import SwiftData
 
 @main
 struct RiseAppApp: App {
+    // This acts like a Schema migration manager.
+    // We tell it which models we want to store.
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            Habit.self,
+            Quote.self,
+            DailyTask.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -26,6 +23,13 @@ struct RiseAppApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                        .onAppear {
+                            // Request Permission
+                            NotificationManager.shared.requestAuthorization()
+                            
+                            // Refresh the Quote Queue
+                            NotificationManager.shared.scheduleDailyQuotes()
+                        }
         }
         .modelContainer(sharedModelContainer)
     }
