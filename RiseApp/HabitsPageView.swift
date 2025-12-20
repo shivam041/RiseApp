@@ -15,7 +15,7 @@ struct HabitsPageView: View {
                     VStack(spacing: 20) {
                         // Header
                         HStack {
-                            Text("Your Rituals")
+                            Text("Your Habits")
                                 .font(.system(size: 34, weight: .black, design: .rounded))
                                 .foregroundStyle(.white)
                             Spacer()

@@ -9,7 +9,7 @@ struct DashboardView: View {
     
     // STATE
     @State private var selectedDate: Date = Date()
-    @State private var isAnimating = false
+    @State private var confettiTrigger = 0 // Triggers the explosion
     
     func updateWidget() { WidgetCenter.shared.reloadAllTimelines() }
     
@@ -49,9 +49,11 @@ struct DashboardView: View {
                                                 style: StrokeStyle(lineWidth: 8, lineCap: .round)
                                             )
                                             .rotationEffect(.degrees(-90))
+                                            .animation(.spring, value: calculateProgress())
                                         
                                         Text("\(Int(calculateProgress() * 100))%")
                                             .font(.caption).fontWeight(.bold).foregroundStyle(.white)
+                                            .contentTransition(.numericText())
                                     }
                                     .frame(width: 60, height: 60)
                                 }
@@ -70,6 +72,7 @@ struct DashboardView: View {
                             HStack(spacing: 12) {
                                 ForEach(getWeekDays(), id: \.self) { date in
                                     DayPill(date: date, isSelected: Calendar.current.isDate(date, inSameDayAs: selectedDate)) {
+                                        HapticManager.shared.lightImpact() // Click feel
                                         withAnimation(.spring(response: 0.3)) {
                                             selectedDate = date
                                         }
@@ -79,32 +82,28 @@ struct DashboardView: View {
                             .padding(.horizontal)
                         }
                         
-                        // --- FOCUS TIMER CARD (NEW) ---
+                        // --- FOCUS TIMER CARD ---
                         NavigationLink(destination: PomodoroView()) {
                             HStack {
                                 VStack(alignment: .leading, spacing: 5) {
                                     Text("Deep Focus")
-                                    .font(.headline)
-                                    .foregroundStyle(.white)
+                                        .font(.headline)
+                                        .foregroundStyle(.white)
                                     Text("Start a 25m session")
-                                    .font(.caption)
-                                    .foregroundStyle(.white.opacity(0.7))
-                                                        }
+                                        .font(.caption)
+                                        .foregroundStyle(.white.opacity(0.7))
+                                }
                                 Spacer()
                                 Image(systemName: "timer")
-                                .font(.system(size: 30))
-                                .foregroundStyle(.cyan)
-                                .symbolEffect(.pulse.byLayer, options: .repeating)
-                                                    }
-                                .padding()
-                                .glassEffect()
-                                .padding(.horizontal)
-                                                }
-                                .buttonStyle(BouncyButton())
-                        
-                        
-                        
-                        
+                                    .font(.system(size: 30))
+                                    .foregroundStyle(.cyan)
+                                    .symbolEffect(.pulse.byLayer, options: .repeating)
+                            }
+                            .padding()
+                            .glassEffect()
+                            .padding(.horizontal)
+                        }
+                        .buttonStyle(BouncyButton())
                         
                         // --- TASKS SECTION ---
                         VStack(alignment: .leading, spacing: 15) {
@@ -138,11 +137,15 @@ struct DashboardView: View {
                     }
                     .padding(.top)
                 }
+                
+                // 3. GAMIFICATION OVERLAY (Confetti Cannon)
+                ConfettiView(trigger: $confettiTrigger)
+                    .allowsHitTesting(false) // Let touches pass through
             }
         }
     }
     
-    // --- HELPERS ---
+    // MARK: - HELPERS
     
     func calculateProgress() -> Double {
         let total = selectedDateTasks.count + selectedDateHabits.count
@@ -178,6 +181,16 @@ struct DashboardView: View {
     func toggleTask(_ task: DailyTask) {
         withAnimation {
             task.isCompleted.toggle()
+            
+            // --- GAMIFICATION LOGIC ---
+            if task.isCompleted {
+                HapticManager.shared.success() // Heavy vibration
+                confettiTrigger += 1           // Fire Cannon
+            } else {
+                HapticManager.shared.lightImpact() // Light vibration
+            }
+            // --------------------------
+            
             if task.isCompleted {
                 NotificationManager.shared.cancelTaskNotification(for: task)
             } else {
@@ -188,7 +201,7 @@ struct DashboardView: View {
     }
 }
 
-// --- SUBVIEWS ---
+// MARK: - SUBVIEWS
 
 struct DayPill: View {
     let date: Date
@@ -285,8 +298,10 @@ struct HabitRow3D: View {
         // Toggle logic
         if isCompleted {
             habit.completedDates.removeAll { Calendar.current.isDate($0, inSameDayAs: date) }
+            HapticManager.shared.lightImpact()
         } else {
             habit.completedDates.append(date)
+            HapticManager.shared.success() // Vibrate for habits too!
         }
         withAnimation { isCompleted.toggle() }
         WidgetCenter.shared.reloadAllTimelines()
