@@ -170,7 +170,11 @@ struct DashboardView: View {
     }
     
     var selectedDateTasks: [DailyTask] {
-        allTasks.filter { Calendar.current.isDate($0.createdAt, inSameDayAs: selectedDate) }
+        allTasks.filter { task in
+            // FIX: Use reminder date if available, otherwise creation date
+            let effectiveDate = task.reminders.first ?? task.createdAt
+            return Calendar.current.isDate(effectiveDate, inSameDayAs: selectedDate)
+        }
     }
     
     var selectedDateHabits: [Habit] {

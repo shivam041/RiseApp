@@ -10,38 +10,79 @@ struct TasksPageView: View {
     var body: some View {
         NavigationView {
             ZStack {
+                // Background Gradient
                 LinearGradient(colors: [.black, Color(uiColor: .darkGray)], startPoint: .top, endPoint: .bottom).ignoresSafeArea()
                 
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 20) {
+                // MARK: - Main List
+                List {
+                    // 1. Header (Inside List so it scrolls)
+                    Section {
                         HStack {
                             Text("Tasks")
                                 .font(.system(size: 34, weight: .black, design: .rounded))
                                 .foregroundStyle(.white)
                             Spacer()
                         }
-                        .padding(.horizontal)
-                        .padding(.top, 20)
-                        
-                        if tasks.isEmpty {
+                        .padding(.top, 10)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                    }
+                    
+                    if tasks.isEmpty {
+                        // Empty State
+                        Section {
                             EmptyStateCard(icon: "checkmark.circle.trianglebadge.exclamationmark", text: "All caught up!")
-                        } else {
-                            LazyVStack(spacing: 12) {
-                                ForEach(tasks) { task in
-                                    NavigationLink(destination: EditTaskView(task: task)) {
-                                        TaskRow3D(task: task) {
-                                            toggleTask(task)
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                        }
+                    } else {
+                        // 2. Task List
+                        ForEach(tasks) { task in
+                            ZStack {
+                                // Navigation Link for Editing
+                                NavigationLink(destination: EditTaskView(task: task)) {
+                                    EmptyView()
+                                }
+                                .opacity(0) // Hide the arrow
+                                
+                                // Display Logic
+                                VStack(alignment: .leading, spacing: 4) {
+                                    TaskRow3D(task: task) {
+                                        toggleTask(task)
+                                    }
+                                    
+                                    // Reminder Date Text
+                                    if let reminder = task.reminders.first {
+                                        HStack {
+                                            Image(systemName: "clock.fill")
+                                                .font(.caption2)
+                                            Text(reminder.formatted(date: .abbreviated, time: .shortened))
+                                                .font(.caption)
+                                                .fontWeight(.medium)
                                         }
+                                        .foregroundStyle(.white.opacity(0.5))
+                                        .padding(.leading, 12)
                                     }
                                 }
                             }
+                            .listRowBackground(Color.clear) // Transparent Row
+                            .listRowSeparator(.hidden)      // No Lines
+                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)) // Custom Padding
                         }
-                        
-                        Spacer(minLength: 100)
+                        .onDelete(perform: deleteItems) // <--- THIS ENABLES SWIPE TO DELETE
+                    }
+                    
+                    // Spacer at bottom for floating button
+                    Section {
+                        Spacer().frame(height: 100)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
                     }
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden) // <--- Makes the List transparent
                 
-                // Floating Add Button
+                // MARK: - Floating Add Button
                 VStack {
                     Spacer()
                     HStack {
@@ -71,134 +112,25 @@ struct TasksPageView: View {
         }
     }
     
-    func toggleTask(_ task: DailyTask) {
-            withAnimation {
-                task.isCompleted.toggle()
-                
-                // NEW GAMIFICATION LOGIC
-                if task.isCompleted {
-                    HapticManager.shared.success()
-                    confettiTrigger += 1
-                } else {
-                    HapticManager.shared.lightImpact()
-                }
-            }
-        }
-}
-
-
-// --- MODERN GLASS ADD TASK SHEET ---
-struct AddTaskSheet: View {
-    @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
-    
-    @State private var title = ""
-    @State private var notes = ""
-    @State private var wantsReminder = false
-    @State private var reminderTime = Date()
-    
-    var body: some View {
-        ZStack {
-            // 1. Dark Gradient Background
-            LinearGradient(colors: [.black, Color(uiColor: .darkGray)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                .ignoresSafeArea()
-            
-            VStack(spacing: 25) {
-                // Handle bar
-                Capsule()
-                    .fill(Color.white.opacity(0.2))
-                    .frame(width: 40, height: 4)
-                    .padding(.top, 20)
-                
-                Text("New Task")
-                    .font(.system(size: 24, weight: .black, design: .rounded))
-                    .foregroundStyle(.white)
-                
-                // 2. Input Fields (Glass)
-                VStack(spacing: 20) {
-                    // Title Input
-                    TextField("What needs to be done?", text: $title)
-                        .padding()
-                        .background(Color.white.opacity(0.05))
-                        .cornerRadius(12)
-                        .foregroundStyle(.white)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(.white.opacity(0.1), lineWidth: 1)
-                        )
-                    
-                    // Notes Input
-                    TextField("Add extra notes...", text: $notes, axis: .vertical)
-                        .lineLimit(3...6)
-                        .padding()
-                        .background(Color.white.opacity(0.05))
-                        .cornerRadius(12)
-                        .foregroundStyle(.white.opacity(0.8))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(.white.opacity(0.1), lineWidth: 1)
-                        )
-                    
-                    // Reminder Toggle
-                    Toggle(isOn: $wantsReminder) {
-                        HStack {
-                            Image(systemName: "bell.fill")
-                                .foregroundStyle(.pink)
-                            Text("Remind Me")
-                                .foregroundStyle(.white)
-                        }
-                    }
-                    .padding()
-                    .background(Color.white.opacity(0.05))
-                    .cornerRadius(12)
-                    
-                    // Date Picker (Only shows if toggle is on)
-                    if wantsReminder {
-                        DatePicker("Time", selection: $reminderTime, displayedComponents: .hourAndMinute)
-                            .datePickerStyle(.compact)
-                            .colorScheme(.dark) // Force dark picker
-                            .padding()
-                            .background(Color.white.opacity(0.05))
-                            .cornerRadius(12)
-                            .transition(.move(edge: .top).combined(with: .opacity))
-                    }
-                }
-                .padding(.horizontal)
-                
-                Spacer()
-                
-                // 3. Action Buttons
-                HStack(spacing: 20) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundStyle(.white.opacity(0.6))
-                    
-                    Button {
-                        saveTask()
-                    } label: {
-                        Text("Create Task")
-                            .fontWeight(.bold)
-                            .foregroundStyle(.black)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(title.isEmpty ? Color.gray : Color.pink)
-                            .clipShape(RoundedRectangle(cornerRadius: 16))
-                    }
-                    .disabled(title.isEmpty)
-                    .buttonStyle(BouncyButton())
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 20)
+    // Logic to delete tasks from SwiftData
+    func deleteItems(at offsets: IndexSet) {
+        withAnimation {
+            for index in offsets {
+                let taskToDelete = tasks[index]
+                modelContext.delete(taskToDelete)
             }
         }
     }
     
-    func saveTask() {
-        let initialReminders: [Date] = wantsReminder ? [reminderTime] : []
-        let newTask = DailyTask(title: title, reminders: initialReminders, notes: notes)
-        modelContext.insert(newTask)
-        if wantsReminder {
-            NotificationManager.shared.scheduleTaskNotification(for: newTask)
+    func toggleTask(_ task: DailyTask) {
+        withAnimation {
+            task.isCompleted.toggle()
+            if task.isCompleted {
+                HapticManager.shared.success()
+                confettiTrigger += 1
+            } else {
+                HapticManager.shared.lightImpact()
+            }
         }
-        dismiss()
     }
 }

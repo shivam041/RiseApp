@@ -3,8 +3,6 @@ import SwiftData
 
 @main
 struct RiseAppApp: App {
-    // This acts like a Schema migration manager.
-    // We tell it which models we want to store.
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Habit.self,
@@ -22,14 +20,12 @@ struct RiseAppApp: App {
 
     var body: some Scene {
         WindowGroup {
+            // Restore the main app view
             ContentView()
-                        .onAppear {
-                            // Request Permission
-                            NotificationManager.shared.requestAuthorization()
-                            
-                            // Refresh the Quote Queue
-                            NotificationManager.shared.scheduleDailyQuotes()
-                        }
+                .onAppear {
+                    NotificationManager.shared.requestAuthorization()
+                    NotificationManager.shared.scheduleDailyQuotes()
+                }
         }
         .modelContainer(sharedModelContainer)
     }

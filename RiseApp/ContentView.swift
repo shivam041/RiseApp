@@ -19,6 +19,9 @@ struct ContentView: View {
                 
                 TasksPageView()
                     .tag(2)
+                
+                AICoachView() // <--- NEW AI PAGE
+                    .tag(3)
             }
             
             // THE NEON FLOATING BAR
@@ -26,21 +29,23 @@ struct ContentView: View {
                 TabItem(icon: "square.grid.2x2.fill", title: "Home", color: .cyan, isActive: selectedTab == 0) { selectedTab = 0 }
                 TabItem(icon: "flame.fill", title: "Habits", color: .orange, isActive: selectedTab == 1) { selectedTab = 1 }
                 TabItem(icon: "checkmark.circle.fill", title: "Tasks", color: .pink, isActive: selectedTab == 2) { selectedTab = 2 }
+                TabItem(icon: "brain.head.profile", title: "Rise AI", color: .purple, isActive: selectedTab == 3) { selectedTab = 3 } // <--- NEW BUTTON
             }
             .padding(12)
             .background(.ultraThinMaterial)
-            .background(Color.black.opacity(0.4)) // Extra dark tint
+            .background(Color.black.opacity(0.4))
             .clipShape(Capsule())
             .shadow(color: .black.opacity(0.4), radius: 10, y: 10)
             .overlay(Capsule().stroke(.white.opacity(0.15), lineWidth: 1))
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 15) // Reduced padding slightly to fit 4 icons
             .padding(.bottom, 10)
         }
         .ignoresSafeArea(.keyboard)
-        .preferredColorScheme(.dark) // Force Dark Mode for the whole app
+        .preferredColorScheme(.dark)
     }
 }
 
+// (Keep the TabItem struct and BouncyButton exactly as they were)
 struct TabItem: View {
     var icon: String
     var title: String
@@ -52,7 +57,7 @@ struct TabItem: View {
         Button(action: action) {
             VStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 22, weight: isActive ? .bold : .medium))
+                    .font(.system(size: 20, weight: isActive ? .bold : .medium)) // Slightly smaller icon
                     .symbolEffect(.bounce, value: isActive)
                 
                 if isActive {
@@ -61,8 +66,8 @@ struct TabItem: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 50)
-            .foregroundStyle(isActive ? color : .white.opacity(0.4)) // Bright color vs Dim White
-            .shadow(color: isActive ? color.opacity(0.5) : .clear, radius: 10) // Neon Glow effect
+            .foregroundStyle(isActive ? color : .white.opacity(0.4))
+            .shadow(color: isActive ? color.opacity(0.5) : .clear, radius: 10)
             .contentShape(Rectangle())
         }
         .buttonStyle(BouncyButton())

@@ -9,9 +9,8 @@ struct CalendarView: View {
     @Query private var allTasks: [DailyTask]
     
     // STATE
-    @State private var selectedDate: Date = Date() // The day clicked (for the list below)
-    @State private var visibleMonth: Date = Date() // The month showing on the grid
-    
+    @State private var selectedDate: Date = Date()
+    @State private var visibleMonth: Date = Date()
     @State private var newTaskTitle: String = ""
     
     let columns = Array(repeating: GridItem(.flexible()), count: 7)
@@ -23,55 +22,36 @@ struct CalendarView: View {
                 
                 // --- 1. NAVIGATION HEADER ---
                 HStack {
-                    Button {
-                        changeMonth(by: -1)
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .imageScale(.large)
-                            .foregroundStyle(.indigo)
+                    Button { changeMonth(by: -1) } label: {
+                        Image(systemName: "chevron.left").imageScale(.large).foregroundStyle(.indigo)
                     }
-                    
                     Spacer()
-                    
                     Text(visibleMonth.formatted(.dateTime.month(.wide).year()))
-                        .font(.title2)
-                        .fontWeight(.bold)
+                        .font(.title2).fontWeight(.bold)
                         .onTapGesture {
-                            // Tap title to return to Today
                             visibleMonth = Date()
                             selectedDate = Date()
                         }
-                    
                     Spacer()
-                    
-                    Button {
-                        changeMonth(by: 1)
-                    } label: {
-                        Image(systemName: "chevron.right")
-                            .imageScale(.large)
-                            .foregroundStyle(.indigo)
+                    Button { changeMonth(by: 1) } label: {
+                        Image(systemName: "chevron.right").imageScale(.large).foregroundStyle(.indigo)
                     }
                 }
                 .padding(.horizontal)
                 
                 // --- 2. DAYS OF WEEK ---
                 HStack {
-                    // FIX: Iterate indices to avoid duplicate ID issues
                     ForEach(0..<daysOfWeek.count, id: \.self) { index in
                         Text(daysOfWeek[index])
-                            .font(.caption)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.secondary)
+                            .font(.caption).fontWeight(.bold).foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity)
                     }
                 }
                 
                 // --- 3. CALENDAR GRID ---
                 LazyVGrid(columns: columns, spacing: 15) {
-                    // Blank spaces for offset
                     ForEach(0..<startingSpaces(), id: \.self) { _ in Text("") }
                     
-                    // Days
                     ForEach(1...daysInMonth(), id: \.self) { day in
                         let date = getDate(for: day)
                         let isSelected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
@@ -110,14 +90,13 @@ struct CalendarView: View {
                 }
                 .padding(.horizontal)
                 .gesture(DragGesture().onEnded { value in
-                    // Bonus: Swipe left/right to change month
                     if value.translation.width < -30 { changeMonth(by: 1) }
                     if value.translation.width > 30 { changeMonth(by: -1) }
                 })
                 
                 Divider().padding(.vertical)
                 
-                // --- 4. DAILY AGENDA (Bottom) ---
+                // --- 4. DAILY AGENDA ---
                 VStack(alignment: .leading, spacing: 15) {
                     Text("Schedule for \(selectedDate.formatted(.dateTime.day().month()))")
                         .font(.headline).padding(.horizontal)
@@ -180,9 +159,7 @@ struct CalendarView: View {
     
     func changeMonth(by value: Int) {
         if let newMonth = Calendar.current.date(byAdding: .month, value: value, to: visibleMonth) {
-            withAnimation {
-                visibleMonth = newMonth
-            }
+            withAnimation { visibleMonth = newMonth }
         }
     }
     
@@ -204,35 +181,39 @@ struct CalendarView: View {
         return Calendar.current.component(.weekday, from: startOfMonth) - 1
     }
     
-    // --- UPDATED LOGIC FOR NEW TASK MODEL ---
+    // --- UPDATED LOGIC FOR TASKS ---
     
     func addTask() {
         guard !newTaskTitle.isEmpty else { return }
         
-        // FIX: Create task first, THEN overwrite createdAt with selectedDate
         let newTask = DailyTask(title: newTaskTitle)
         newTask.createdAt = selectedDate
+        // Note: Creating from calendar doesn't set a reminder by default,
+        // but 'createdAt' will serve as the fallback date.
         
         modelContext.insert(newTask)
         newTaskTitle = ""
     }
     
     func tasksForSelectedDate() -> [DailyTask] {
-        // FIX: Filter using 'createdAt' instead of 'date'
-        allTasks.filter { Calendar.current.isDate($0.createdAt, inSameDayAs: selectedDate) }
+        allTasks.filter { task in
+            // Use reminder date if available, otherwise creation date
+            let effectiveDate = task.reminders.first ?? task.createdAt
+            return Calendar.current.isDate(effectiveDate, inSameDayAs: selectedDate)
+        }
     }
     
     func countItems(on date: Date) -> Int {
         let habitCount = habits.filter { isCompleted($0, on: date) }.count
-        // FIX: Filter using 'createdAt' instead of 'date'
-        let taskCount = allTasks.filter { Calendar.current.isDate($0.createdAt, inSameDayAs: date) && $0.isCompleted }.count
+        let taskCount = allTasks.filter { task in
+            let effectiveDate = task.reminders.first ?? task.createdAt
+            return Calendar.current.isDate(effectiveDate, inSameDayAs: date) && task.isCompleted
+        }.count
         return habitCount + taskCount
     }
     
     // Unchanged Helpers
-    func toggleTask(_ task: DailyTask) {
-        task.isCompleted.toggle()
-    }
+    func toggleTask(_ task: DailyTask) { task.isCompleted.toggle() }
     func habitsForSelectedDate() -> [Habit] {
         let weekdayIndex = Calendar.current.component(.weekday, from: selectedDate) - 1
         return habits.filter { $0.weekdays.contains(weekdayIndex) }
