@@ -11,7 +11,7 @@ class GeminiService {
     static let shared = GeminiService()
     
     // ⚠️ KEEP YOUR KEY HERE
-    private let apiKey = "AIzaSyA9Fjaa8zs9AcX5zX6YoE_DNg0YBNO79Rs"
+    private let apiKey = ""
     
     func sendMessage(message: String, context: String) async throws -> String {
         if apiKey.isEmpty || apiKey.contains("PASTE_YOUR_KEY") {
