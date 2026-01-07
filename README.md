@@ -8,12 +8,19 @@
 
 ---
 
-## 📱 Screenshots
+## 📱 Interface Gallery
 
-| Dashboard | Task Management | Calendar & Scheduling |
+### Core Experience
+| **Dashboard** | **Smart Tasks** | **Calendar & History** |
 |:---:|:---:|:---:|
-| <img src="docs/dashboard.png" width="250" /> | <img src="docs/tasks.png" width="250" /> | <img src="docs/calendar.png" width="250" /> |
-> *Featuring a custom "Glassmorphic" design system with 3D parallax effects.*
+| <img src="docs/1766441096282.jpg" width="250" alt="RiseApp Dashboard" /> | <img src="docs/1766441086964.jpg" width="250" alt="Task Management" /> | <img src="docs/IMG_4944.jpg" width="250" alt="Calendar View" /> |
+| *Personalized "Rise & Grind" Dashboard tracking daily progress.* | *Clean, gesture-driven task management with reminders.* | *History tracking and future scheduling.* |
+
+### Intelligence & System Integration
+| **AI Coach** | **Home Screen Widgets** |
+|:---:|:---:|
+| <img src="docs/1766441053519.jpg" width="250" alt="AI Chat Interface" /> | <img src="docs/Screenshot 2025-12-22 at 10.41.24 PM.jpg" width="250" alt="iOS Widgets" /> |
+| *Gemini-powered assistant for scheduling advice and motivation.* | *Interactive widgets sharing data via App Groups.* |
 
 ---
 
