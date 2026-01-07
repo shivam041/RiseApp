@@ -4,23 +4,23 @@
 
 ![Swift](https://img.shields.io/badge/Swift-5.10-orange.svg) ![Platform](https://img.shields.io/badge/Platform-iOS%2018.0-lightgrey.svg) ![License](https://img.shields.io/badge/License-MIT-blue.svg)
 
-**RiseApp** is a local-first productivity application designed to bridge the gap between daily task management and long-term habit formation. It leverages modern iOS frameworks—including **SwiftData**, **WidgetKit**, and **ActivityKit**—to create a seamless, zero-latency experience that extends beyond the main app into the Home and Lock Screens.
+**RiseApp** is a local-first productivity application designed to bridge the gap between daily task management and long-term habit formation. It leverages modern iOS frameworks—including **SwiftData**, **WidgetKit**, and **ActivityKit**—to create a seamless, zero-latency experience.
 
 ---
 
 ## 📱 Interface Gallery
 
 ### Core Experience
-| **Dashboard** | **Smart Tasks** | **Calendar & History** |
-|:---:|:---:|:---:|
-| <img src="docs/1766441096282.jpg" width="250" alt="RiseApp Dashboard" /> | <img src="docs/1766441086964.jpg" width="250" alt="Task Management" /> | <img src="docs/IMG_4944.jpg" width="250" alt="Calendar View" /> |
-| *Personalized "Rise & Grind" Dashboard tracking daily progress.* | *Clean, gesture-driven task management with reminders.* | *History tracking and future scheduling.* |
-
-### Intelligence & System Integration
-| **AI Coach** | **Home Screen Widgets** |
+| **Dashboard** | **Smart Tasks** |
 |:---:|:---:|
-| <img src="docs/1766441053519.jpg" width="250" alt="AI Chat Interface" /> | <img src="docs/Screenshot 2025-12-22 at 10.41.24 PM.jpg" width="250" alt="iOS Widgets" /> |
-| *Gemini-powered assistant for scheduling advice and motivation.* | *Interactive widgets sharing data via App Groups.* |
+| <img src="docs/1766441096282.jpg" width="280" alt="RiseApp Dashboard" /> | <img src="docs/1766441086964.jpg" width="280" alt="Task Management" /> |
+| *Personalized "Rise & Grind" Dashboard tracking daily progress.* | *Clean, gesture-driven task management with reminders.* |
+
+### Intelligence
+| **AI Coach** |
+|:---:|
+| <img src="docs/1766441053519.jpg" width="280" alt="AI Chat Interface" /> |
+| *Gemini-powered assistant for scheduling advice and motivation.* |
 
 ---
 
