@@ -78,6 +78,11 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		3C057FB22F0EC11700CF5405 /* docs */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = docs;
+			sourceTree = "<group>";
+		};
 		3C5673F12ED4AD0F00A50CDE /* RiseTimerWidget */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -136,6 +141,7 @@
 		3CF924CD2ED217580063CF0C = {
 			isa = PBXGroup;
 			children = (
+				3C057FB22F0EC11700CF5405 /* docs */,
 				3CC4E6C12EF6F81900B984A3 /* RiseWidgetExtensionExtension.entitlements */,
 				3CD008932EDDEEC400E16337 /* RiseHomeWidget.swift */,
 				3CF924D82ED217580063CF0C /* RiseApp */,
@@ -195,6 +201,7 @@
 				3CC4E6B52EF6F78300B984A3 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
+				3C057FB22F0EC11700CF5405 /* docs */,
 				3CF924D82ED217580063CF0C /* RiseApp */,
 			);
 			name = RiseApp;
